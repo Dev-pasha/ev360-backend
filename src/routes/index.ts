@@ -6,11 +6,12 @@
 
 import { Router } from "express";
 import authRoutes from "./auth.routes";
+import groupRoutes from "./group.routes";
 const router = Router();
 
 // Mount routes
 router.use("/auth", authRoutes);
-// router.use("/group", groupRoutes);
+router.use("/group", groupRoutes);
 // router.use("/player", playerRoutes);
 // router.use("/team", teamRoutes);
 // router.use("/player-list", playerListRoutes);

@@ -7,16 +7,21 @@ import * as jwt from "jsonwebtoken";
 import { DataSource } from "typeorm";
 import authConfig from "../config/auth";
 import Logger from "../config/logger";
+import { Group } from "../entities/group.entity";
+import { Role } from "../entities/role.entity";
+
 
 export class AuthService {
-  private jwtSecret: string;
   private userRepository;
   private userGroupRoleRepository;
+  private groupRepository;
+  private roleRepository;
 
   constructor(private dataSource: DataSource = AppDataSource) {
     // Get from environment variables in production
-    this.jwtSecret = process.env.JWT_SECRET || "your-secret-key";
     this.userRepository = this.dataSource.getRepository(User);
+    this.groupRepository = this.dataSource.getRepository(Group);
+    this.roleRepository = this.dataSource.getRepository(Role);
     this.userGroupRoleRepository = this.dataSource.getRepository(UserGroupRole);
   }
 
@@ -58,7 +63,7 @@ export class AuthService {
     const accessToken = jwt.sign(payload, authConfig.jwtSecret, {
       expiresIn: Number(authConfig.jwtExpiresIn) || "1h",
     });
-    const refreshToken = jwt.sign({ sub: user.id }, this.jwtSecret, {
+    const refreshToken = jwt.sign({ sub: user.id }, authConfig.jwtSecret, {
       expiresIn: Number(authConfig.jwtRefreshExpiresIn) || "1d",
     });
 
@@ -309,7 +314,6 @@ export class AuthService {
       userId: user.id,
       resetToken,
     };
-
   }
 
   verifyToken(token: string): any {
@@ -320,94 +324,160 @@ export class AuthService {
     }
   }
 
-  // async requestPasswordReset(email: string) {
-  //   const user = await this.userRepository.findOne({ where: { email } });
+  async validateInvitationToken(token: string): Promise<any> {
+    try {
+      // Verify token
+      const payload: any = jwt.verify(token, authConfig.jwtSecret);
 
-  //   if (!user) {
-  //     // Don't reveal if user exists
-  //     return false;
-  //   }
+      if (payload.type !== "invitation") {
+        throw new Error("Invalid token type");
+      }
 
-  //   // Generate reset token
-  //   const resetToken = jwt.sign(
-  //     { sub: user.id, type: "password_reset" },
-  //     authConfig.jwtSecret,
-  //     { expiresIn: "1h" }
-  //   );
+      // Find user, group and role
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub },
+      });
+      if (!user) {
+        throw new Error("User not found");
+      }
 
-  //   // In a real app, send this token via email
-  //   // For testing, return the token directly
-  //   return {
-  //     userId: user.id,
-  //     resetToken,
-  //   };
-  // }
+      const group = await this.groupRepository.findOne({
+        where: { id: payload.groupId },
+      });
+      if (!group) {
+        throw new Error("Group not found");
+      }
 
-  // generateVerificationToken(userId: number): string {
-  //   return jwt.sign(
-  //     { sub: userId, type: "email_verification" },
-  //     this.jwtSecret,
-  //     { expiresIn: "24h" }
-  //   );
-  // }
+      const role = await this.roleRepository.findOne({
+        where: { id: payload.roleId },
+      });
+      if (!role) {
+        throw new Error("Role not found");
+      }
 
-  // async verifyEmail(token: string): Promise<boolean> {
-  //   try {
-  //     const payload: any = jwt.verify(token, this.jwtSecret);
+      // Check if account already activated
+      if (user.passwordHash) {
+        throw new Error("Account already activated");
+      }
 
-  //     if (payload.type !== "email_verification") {
-  //       return false;
-  //     }
+      return {
+        email: user.email,
+        group: {
+          id: group.id,
+          name: group.name,
+        },
+        role: {
+          id: role.id,
+          name: role.name,
+        },
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        Logger.error(`Validate invitation token error: ${error.message}`);
+      } else {
+        Logger.error(
+          "Validate invitation token error: An unknown error occurred"
+        );
+      }
+      if (error instanceof Error) {
+        throw new Error(error.message);
+      } else {
+        throw new Error("An unknown error occurred");
+      }
+    }
+  }
 
-  //     await this.userRepository.update(payload.sub, { emailVerified: true });
+  async completeRegistration(
+    token: string,
+    userData: { password: string; firstName: string; lastName: string }
+  ): Promise<any> {
+    try {
+      // Verify token
+      const payload: any = jwt.verify(token, authConfig.jwtSecret);
 
-  //     return true;
-  //   } catch (error) {
-  //     return false;
-  //   }
-  // }
+      if (payload.type !== "invitation") {
+        throw new Error("Invalid token type");
+      }
 
-  // async generatePasswordResetToken(email: string): Promise<string | null> {
-  //   const user = await this.userRepository.findOne({ where: { email } });
+      // Find user
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub },
+      });
 
-  //   if (!user) {
-  //     return null;
-  //   }
+      if (!user) {
+        throw new Error("User not found");
+      }
 
-  //   return jwt.sign({ sub: user.id, type: "password_reset" }, this.jwtSecret, {
-  //     expiresIn: "1h",
-  //   });
-  // }
+      if (user.passwordHash) {
+        throw new Error("Account already activated");
+      }
 
-  // // async resetPassword(token: string, newPassword: string): Promise<boolean> {
-  // //   try {
-  // //     const payload: any = jwt.verify(token, this.jwtSecret);
+      // Update user with provided data
+      const passwordHash = await bcrypt.hash(userData.password, 10);
 
-  // //     if (payload.type !== "password_reset") {
-  // //       return false;
-  // //     }
+      user.passwordHash = passwordHash;
+      user.firstName = userData.firstName;
+      user.lastName = userData.lastName;
+      user.emailVerified = true; // Auto-verify email since we know they received the invitation
 
-  // //     const passwordHash = await bcrypt.hash(newPassword, 12);
+      await this.userRepository.save(user);
 
-  // //     await this.userRepository.update(payload.sub, { passwordHash });
+      // Generate login tokens
 
-  // //     return true;
-  // //   } catch (error) {
-  // //     return false;
-  // //   }
-  // // }
+      // Get user's groups and roles
+      const userGroupRoles = await this.userGroupRoleRepository.find({
+        where: { user: { id: user.id } },
+        relations: ["group", "role"],
+      });
 
-  // logout(token: string): void {
-  //   // Invalidate the token (implementation depends on your token storage strategy)
-  //   // For example, you could store invalidated tokens in a database or cache
-  //   // and check against that list when verifying tokens.
-  // }
+      // Format group roles for token
+      const groupRoles = userGroupRoles.map((ugr) => ({
+        groupId: ugr.group.id,
+        groupName: ugr.group.name,
+        roleId: ugr.role.id,
+        roleName: ugr.role.name,
+      }));
 
-  // async getUserProfile(userId: number): Promise<User | null> {
-  //   return this.userRepository.findOne({ where: { id: userId } });
-  // }
+      // Create payload
+      const tokenPayload = {
+        type: "invitation",
+        sub: user.id,
+        email: user.email,
+        groupRoles,
+      };
 
-  // async getUserByEmail(email: string): Promise<User | null> {
-  //   return this.userRepository.findOne({ where: { email } });
-  // }
+      // Generate tokens
+      const accessToken = jwt.sign(tokenPayload, authConfig.jwtSecret, {
+        expiresIn: Number(authConfig.jwtExpiresIn) || "1h",
+      });
+      const refreshToken = jwt.sign({ sub: user.id }, authConfig.jwtSecret, {
+        expiresIn: Number(authConfig.jwtRefreshExpiresIn) || "1d",
+      });
+
+      // Update user with refresh token
+      user.refreshToken = await bcrypt.hash(refreshToken, 10);
+      user.lastLoginAt = new Date();
+      await this.userRepository.save(user);
+
+      return {
+        accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          groupRoles,
+        },
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        Logger.error(`Complete registration error: ${error.message}`);
+      } else {
+        Logger.error("Complete registration error: An unknown error occurred");
+      }
+    }
+  }
+
+ 
 }

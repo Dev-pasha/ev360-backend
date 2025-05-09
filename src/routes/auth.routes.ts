@@ -108,4 +108,23 @@ router.post(
 
 router.get("/profile", authMiddleware, authController.GetProfile);
 
+router.get(
+  "/invitation/:token",
+  [param("token").notEmpty().withMessage("Token is required")],
+  authController.ValidateInvitation
+);
+
+router.post(
+  "/complete-registration",
+  [
+    body("token").notEmpty().withMessage("Token is required"),
+    body("password")
+      .isLength({ min: 6 })
+      .withMessage("Password must be at least 6 characters long"),
+    body("firstName").notEmpty().withMessage("First name is required"),
+    body("lastName").notEmpty().withMessage("Last name is required"),
+  ],
+  authController.CompleteRegistration
+);
+
 export default router;

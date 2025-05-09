@@ -1,4 +1,4 @@
-import e, { Request, Response } from "express";
+import { Request, Response } from "express";
 import { AuthService } from "../services/auth.service";
 import { validationResult } from "express-validator";
 import { successResponse, errorResponse } from "../utils/response";
@@ -13,17 +13,6 @@ export class AuthController {
 
   Register = async (req: Request, res: Response): Promise<void> => {
     try {
-      // const { email, password, firstName, lastName } = req.body;
-      // const user = await this.authService.register({
-      //   email,
-      //   password,
-      //   firstName,
-      //   lastName,
-      // });
-
-      // // Remove password hash from response
-      // const { passwordHash, ...userWithoutPassword } = user;
-
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         res.status(400).json(errorResponse("Registration failed", 400, errors));
@@ -205,7 +194,6 @@ export class AuthController {
 
   GetProfile = async (req: Request, res: Response): Promise<void> => {
     try {
-
       if (!req.user) {
         res.status(401).json(errorResponse("Unauthorized", 401));
         return;
@@ -225,6 +213,62 @@ export class AuthController {
     } catch (error) {
       logger.error("Error in getting profile: ", error);
       res.status(500).json(errorResponse("Failed to get profile", 500, error));
+    }
+  };
+
+  ValidateInvitation = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json(errorResponse("Token is Invalid", 400, errors));
+        return;
+      }
+
+      const { token } = req.params;
+
+      const result = await this.authService.validateInvitationToken(token);
+
+      res.json(
+        successResponse({
+          message: "Invitation validated successfully",
+          result,
+        })
+      );
+    } catch (error) {
+      logger.error("Error in invitation validation: ", error);
+      res
+        .status(500)
+        .json(errorResponse("Invitation validation failed", 500, error));
+    }
+  };
+
+  CompleteRegistration = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json(errorResponse("Token is Invalid", 400, errors));
+        return;
+      }
+
+      const { token, password, firstName, lastName } = req.body;
+
+      const result = await this.authService.completeRegistration(token, {
+        password,
+        firstName,
+        lastName,
+      });
+
+      res.json(
+        successResponse({
+          message: "Registration completed successfully",
+          result,
+        })
+      );
+    } catch (error) {
+      logger.error("Error in email verification: ", error);
+      res
+        .status(500)
+        .json(errorResponse("Email verification failed", 500, error));
     }
   };
 }

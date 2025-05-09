@@ -2,13 +2,13 @@
 import { Request, Response, NextFunction } from "express";
 import { AuthService } from "../services/auth.service";
 
-// export interface AuthenticatedRequest extends Request {
-//   user?: any;
-// }
+export interface AuthenticatedRequest extends Request {
+  user?: any;
+}
 
 declare global {
   namespace Express {
-    interface Request {
+    export interface Request {
       user?: {
         id: number;
         email: string;
@@ -48,6 +48,7 @@ export function authMiddleware(
       return resolve();
     }
 
+    console.log("Payload: ", payload);
     // Attach user to request
     req.user = {
       id: payload.sub,

@@ -1,35 +1,48 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
-import { UserGroupRole } from './user-group-role.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from "typeorm";
+import { UserGroupRole } from "./user-group-role.entity";
 
-@Entity('users')
+@Entity("users")
 export class User {
+  static find(arg0: { where: { id: number } }) {
+    throw new Error("Method not implemented.");
+  }
   @PrimaryGeneratedColumn()
-    id!: number;
+  id!: number;
 
   @Column({ unique: true })
-    email!: string;
+  email!: string;
 
   @Column()
-    passwordHash!: string;
+  passwordHash!: string;
 
   @Column({ nullable: true })
-    firstName!: string;
+  firstName!: string;
 
   @Column({ nullable: true })
-    lastName!: string;
+  lastName!: string;
 
   @Column({ default: false })
-    emailVerified!: boolean;
+  emailVerified!: boolean;
 
   @Column({ nullable: true })
-    lastLoginAt!: Date;
+  refreshToken!: string;
+
+  @Column({ nullable: true })
+  lastLoginAt!: Date;
 
   @CreateDateColumn()
-    createdAt!: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-    updatedAt!: Date;
+  updatedAt!: Date;
 
-  @OneToMany(() => UserGroupRole, userGroupRole => userGroupRole.user)
-    userGroupRoles!: UserGroupRole[];
+  @OneToMany(() => UserGroupRole, (userGroupRole) => userGroupRole.user)
+  userGroupRoles!: UserGroupRole[];
 }

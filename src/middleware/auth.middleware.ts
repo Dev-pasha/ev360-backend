@@ -1,36 +1,61 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import authConfig from '../config/auth';
-import Logger from '../config/logger';
+// src/middleware/auth.middleware.ts
+import { Request, Response, NextFunction } from "express";
+import { AuthService } from "../services/auth.service";
 
-export interface AuthRequest extends Request {
-  user?: any;
+// export interface AuthenticatedRequest extends Request {
+//   user?: any;
+// }
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: number;
+        email: string;
+        groupRoles: any[]; // adjust to match your token payload
+      };
+    }
+  }
 }
 
-export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
+export function authMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  return new Promise((resolve) => {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader) {
-      return res.status(401).json({ message: 'No token provided' });
+      res.status(401).json({ message: "No token provided" });
+      return resolve();
     }
-    
-    const token = authHeader.split(' ')[1];
-    
+
+    // Get token from header
+    const token = authHeader.split(" ")[1];
+
     if (!token) {
-      return res.status(401).json({ message: 'Authentication failed' });
+      res.status(401).json({ message: "Invalid token format" });
+      return resolve();
     }
-    
-    const decodedToken = jwt.verify(token, authConfig.jwtSecret);
-    req.user = decodedToken;
-    
+
+    // Verify token
+    const authService = new AuthService();
+    const payload = authService.verifyToken(token);
+
+    if (!payload) {
+      res.status(401).json({ message: "Invalid or expired token" });
+      return resolve();
+    }
+
+    // Attach user to request
+    req.user = {
+      id: payload.sub,
+      email: payload.email,
+      groupRoles: payload.groupRoles,
+    };
+
     next();
-  } catch (error) {
-    if (error instanceof Error) {
-      Logger.error(`Authentication error: ${error.message}`);
-    } else {
-      Logger.error('Authentication error: An unknown error occurred');
-    }
-    return res.status(401).json({ message: 'Authentication failed' });
-  }
-};
+    resolve();
+  });
+}

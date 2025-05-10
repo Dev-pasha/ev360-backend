@@ -5,7 +5,6 @@ import { AuthenticatedRequest } from './auth.middleware';
 
 export function requirePermission(permissionName: string) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    console.log("permission middlware",req.user);
     if (!req.user) {
       return res.status(401).json({ message: 'Not authenticated' });
     }

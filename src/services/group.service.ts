@@ -6,6 +6,7 @@ import { Role } from "../entities/role.entity";
 import { UserGroupRole } from "../entities/user-group-role.entity";
 import Logger from "../config/logger";
 import { DataSource } from "typeorm";
+import { GroupTemplateService } from "./group-template.service";
 
 export class GroupService {
   private userRepository;
@@ -22,7 +23,7 @@ export class GroupService {
 
   async createGroup(
     userId: number,
-    groupData: { name: string; description?: string; logo?: string }
+    groupData: { name: string; description?: string; logo?: string, templateId?: number }
   ) {
     try {
       // Verify user exists
@@ -58,6 +59,11 @@ export class GroupService {
       });
 
       await this.userGroupRoleRepository.save(userGroupRole);
+
+      if (groupData.templateId) {
+        const groupTemplateService = new GroupTemplateService();
+        await groupTemplateService.assignTemplateToGroup(savedGroup.id, groupData.templateId);
+      }
 
       return savedGroup;
     } catch (error) {

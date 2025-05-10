@@ -48,7 +48,7 @@ export function authMiddleware(
       return resolve();
     }
 
-    console.log("Payload: ", payload);
+    // console.log("Payload: ", payload);
     // Attach user to request
     req.user = {
       id: payload.sub,

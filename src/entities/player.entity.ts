@@ -15,6 +15,7 @@ import { Position } from "./group-position.entity";
 import { Team } from "./team.entity";
 import { Category } from "./player-category.entity";
 import { PlayerList } from "./player-list.entity";
+import { GroupTemplateCategory } from "./group-template-category.entity";
 
 export enum Gender {
   MALE = 1,

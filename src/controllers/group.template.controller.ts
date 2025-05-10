@@ -176,11 +176,13 @@ export class GroupTemplateController {
       }
 
       const { groupTemplateId } = req.query;
+      const { groupId } = req.params;
 
       // Add category to group template
       const groupTemplate = await this.groupTemplateService.addCategory(
         parseInt(groupTemplateId as string),
-        req.body.name
+        req.body.name,
+        +groupId
       );
 
       res.status(200).json(

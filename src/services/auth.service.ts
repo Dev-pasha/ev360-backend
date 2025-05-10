@@ -61,7 +61,7 @@ export class AuthService {
     };
 
     const accessToken = jwt.sign(payload, authConfig.jwtSecret, {
-      expiresIn: Number(authConfig.jwtExpiresIn) || "1h",
+      expiresIn: Number(authConfig.jwtExpiresIn) || "5h",
     });
     const refreshToken = jwt.sign({ sub: user.id }, authConfig.jwtSecret, {
       expiresIn: Number(authConfig.jwtRefreshExpiresIn) || "1d",

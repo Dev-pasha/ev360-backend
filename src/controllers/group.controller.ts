@@ -31,13 +31,14 @@ export class GroupController {
         return;
       }
 
-      const { name, description, logo } = req.body;
+      const { name, description, logo, templateId } = req.body;
 
       // Create group
       const group = await this.groupService.createGroup(req.user.id, {
         name,
         description,
         logo,
+        templateId,
       });
 
       res.status(201).json(
@@ -304,6 +305,24 @@ export class GroupController {
         .json(
           errorResponse("Failed to retrieve group permissions", 500, error)
         );
+    }
+  };
+
+
+  DeleteGroup = async (req: Request, res: Response): Promise<void> => {
+    try {
+      console.log("Delete group request: ", req.query);
+      const { groupId } = req.query;
+
+      // Delete group
+      await this.groupService.deleteGroup(
+        groupId ? parseInt(groupId as string) : 0
+      );
+
+      res.json(successResponse("Group deleted successfully"));
+    } catch (error) {
+      Logger.error("Error in deleting group: ", error);
+      res.status(400).json(errorResponse("Group deletion failed", 400, error));
     }
   };
 }

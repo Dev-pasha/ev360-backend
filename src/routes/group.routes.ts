@@ -1,5 +1,5 @@
 import { RequestHandler, Router } from "express";
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import { GroupController } from "../controllers/group.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { requirePermission } from "../middleware/permission.middleware";
@@ -160,5 +160,16 @@ router.get(
 
 //   authController.GetGroupPermissions
 // );
+
+router.delete(
+  "/delete",
+  authMiddleware,
+  [
+    // requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    query('groupId').isInt().withMessage("Group ID must be an integer"),
+  ],
+  authController.DeleteGroup
+);
 
 export default router;

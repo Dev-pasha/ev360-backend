@@ -23,7 +23,12 @@ export class GroupService {
 
   async createGroup(
     userId: number,
-    groupData: { name: string; description?: string; logo?: string, templateId?: number }
+    groupData: {
+      name: string;
+      description?: string;
+      logo?: string;
+      templateId?: number;
+    }
   ) {
     try {
       // Verify user exists
@@ -62,7 +67,10 @@ export class GroupService {
 
       if (groupData.templateId) {
         const groupTemplateService = new GroupTemplateService();
-        await groupTemplateService.assignTemplateToGroup(savedGroup.id, groupData.templateId);
+        await groupTemplateService.assignTemplateToGroup(
+          savedGroup.id,
+          groupData.templateId
+        );
       }
 
       return savedGroup;
@@ -429,5 +437,23 @@ export class GroupService {
         throw new Error("An unknown error occurred");
       }
     }
+  }
+
+  async deleteGroup(groupId: number) {
+    // group has associated users and roles we need to remove their corresponding records
+    const group = await this.groupRepository.findOne({
+      where: { id: groupId },
+      relations: ["userGroupRoles"],
+    });
+    if (!group) {
+      Logger.error(`Delete group error: Group not found (id: ${groupId})`);
+      throw new Error("Group not found");
+    }
+
+    // Remove all user-group-role associations
+    await this.userGroupRoleRepository.remove(group.userGroupRoles);
+    // Remove group
+    await this.groupRepository.remove(group);
+    return true;
   }
 }

@@ -6,7 +6,8 @@ import { GroupTemplateMetric } from "../entities/group-template-metric-score.ent
 import { GroupTemplateSkill } from "../entities/group-template-skill.entity";
 import { GroupTemplate } from "../entities/group-template.entity";
 import { Group } from "../entities/group.entity";
-import { DataSource } from "typeorm";
+import { DataSource, In } from "typeorm";
+import { CategoryService } from "./category.service";
 
 export class GroupTemplateService {
   private groupRepository;
@@ -15,6 +16,7 @@ export class GroupTemplateService {
   private groupTemplateCategoryRepository;
   private groupTemplateSkillRepository;
   private groupTemplateMetricRepository;
+  private readonly categoryService: CategoryService;
 
   constructor(private dataSource: DataSource = AppDataSource) {
     this.groupRepository = this.dataSource.getRepository(Group);
@@ -28,6 +30,7 @@ export class GroupTemplateService {
       this.dataSource.getRepository(GroupTemplateSkill);
     this.groupTemplateMetricRepository =
       this.dataSource.getRepository(GroupTemplateMetric);
+    this.categoryService = new CategoryService(this.dataSource);
   }
 
   async assignTemplateToGroup(
@@ -64,6 +67,12 @@ export class GroupTemplateService {
       });
 
       await transactionalEntityManager.save(groupTemplate);
+
+      for (const category of template.categories) {
+        await this.categoryService.createCategory(groupId, {
+          name: category.name,
+        });
+      }
 
       // Create categories, skills, metrics, and custom labels
       for (const category of template.categories) {
@@ -254,7 +263,8 @@ export class GroupTemplateService {
 
   async addCategory(
     groupTemplateId: number,
-    categoryName: string
+    categoryName: string,
+    groupId?: number
   ): Promise<GroupTemplateCategory> {
     const groupTemplate = await this.groupTemplateRepository.findOne({
       where: { id: groupTemplateId },
@@ -272,6 +282,15 @@ export class GroupTemplateService {
       groupTemplate,
       isCustom: true,
     });
+
+    if (groupId === undefined) {
+      throw new Error("Group ID is required to create a category");
+    }
+
+    await this.categoryService.createCategory(groupId, {
+      name: categoryName,
+    });
+
     return this.groupTemplateCategoryRepository.save(newCategory);
   }
 
@@ -325,27 +344,49 @@ export class GroupTemplateService {
       throw new Error("Category not found");
     }
 
-    // transaction to ensure all related entities are deleted
+    try {
+      await this.dataSource.transaction(async (transactionalEntityManager) => {
+        // Step 1: Find all skills IDs for this category
+        const skills = await transactionalEntityManager.find(
+          GroupTemplateSkill,
+          {
+            where: { category: { id: categoryId } },
+            select: ["id"],
+          }
+        );
 
-    this.dataSource.transaction(async (transactionalEntityManager) => {
-      // Delete all related skills and metrics
-      for (const skill of category.skills) {
-        if (skill.metrics && skill.metrics.length > 0) {
-          await transactionalEntityManager.remove(skill.metrics);
+        const skillIds = skills.map((skill) => skill.id);
+
+        if (skillIds.length > 0) {
+          // Step 2: Delete metrics for these skills
+          await transactionalEntityManager.delete(GroupTemplateMetric, {
+            skill: { id: In(skillIds) },
+          });
+
+          // Step 3: Delete the skills themselves
+          await transactionalEntityManager.delete(GroupTemplateSkill, {
+            id: In(skillIds),
+          });
         }
+
+        // Step 4: Delete the category
+        await transactionalEntityManager.delete(GroupTemplateCategory, {
+          id: categoryId,
+        });
+
+        await this.categoryService.deleteCategory(category.id, {
+          name: category.name,
+        });
+      });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      if (error instanceof Error) {
+        throw new Error(`Failed to delete category: ${error.message}`);
+      } else {
+        throw new Error("Failed to delete category due to an unknown error");
       }
-
-      if (category.skills && category.skills.length > 0) {
-        await transactionalEntityManager.remove(category.skills);
-      }
-
-      // Delete the category itself
-      await transactionalEntityManager.remove(category);
-    });
-
-    await this.groupTemplateCategoryRepository.remove(category);
+    }
   }
-
   // SKILL METHODS
 
   async addSkill(
@@ -390,18 +431,17 @@ export class GroupTemplateService {
     }
 
     const category = await this.groupTemplateCategoryRepository.findOne({
-      where: { id: categoryId, 
-        groupTemplate: { id: groupTemplateId },
-       },
+      where: { id: categoryId, groupTemplate: { id: groupTemplateId } },
     });
     if (!category) {
       throw new Error("Category not found");
     }
 
     const skill = await this.groupTemplateSkillRepository.findOne({
-      where: { id: skillId, 
+      where: {
+        id: skillId,
         category: { id: categoryId, groupTemplate: { id: groupTemplateId } },
-       },
+      },
     });
     if (!skill) {
       throw new Error("Skill not found");
@@ -429,18 +469,17 @@ export class GroupTemplateService {
     }
 
     const category = await this.groupTemplateCategoryRepository.findOne({
-      where: { id: categoryId, 
-        groupTemplate: { id: groupTemplateId },
-       },
+      where: { id: categoryId, groupTemplate: { id: groupTemplateId } },
     });
     if (!category) {
       throw new Error("Category not found");
     }
 
     const skill = await this.groupTemplateSkillRepository.findOne({
-      where: { id: skillId, 
+      where: {
+        id: skillId,
         category: { id: categoryId, groupTemplate: { id: groupTemplateId } },
-       },
+      },
       relations: ["metrics"],
     });
     if (!skill) {

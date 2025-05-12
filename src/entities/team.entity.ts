@@ -7,9 +7,11 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  JoinColumn,
 } from "typeorm";
 import { Group } from "./group.entity";
 import { Player } from "./player.entity";
+import { User } from "./user.entity";
 
 @Entity("teams")
 export class Team {
@@ -33,6 +35,10 @@ export class Team {
 
   @Column({ default: true })
   is_active!: boolean;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "coach_id" })
+  coach!: User | null;
 
   @CreateDateColumn()
   created_at!: Date;

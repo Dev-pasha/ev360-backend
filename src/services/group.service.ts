@@ -7,6 +7,9 @@ import { UserGroupRole } from "../entities/user-group-role.entity";
 import Logger from "../config/logger";
 import { DataSource } from "typeorm";
 import { GroupTemplateService } from "./group-template.service";
+import authConfig from "../config/auth";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 
 export class GroupService {
   private userRepository;
@@ -172,77 +175,195 @@ export class GroupService {
   }
 
   async addUserToGroup(
-    groupId: number,
-    userData: { email: string; roleId: number }
-  ) {
-    try {
-      // Find group
-      const group = await this.groupRepository.findOne({
-        where: { id: groupId },
+  groupId: number,
+  userData: { email: string; roleId: number }
+): Promise<{
+  user: { id: number; email: string };
+  isNewUser: boolean;
+  invitationToken?: string;
+  role: { id: number; name: string };
+  group: { id: number; name: string };
+}> {
+  try {
+    // Find group
+    const group = await this.groupRepository.findOne({
+      where: { id: groupId },
+    });
+    if (!group) {
+      Logger.error(`Add user to group error: Group not found (id: ${groupId})`);
+      throw new Error("Group not found");
+    }
+
+    // Find role
+    const role = await this.roleRepository.findOne({
+      where: { id: userData.roleId },
+    });
+    if (!role) {
+      Logger.error(`Add user to group error: Role not found (id: ${userData.roleId})`);
+      throw new Error("Role not found");
+    }
+
+    // Try to find existing user
+    let user = await this.userRepository.findOne({
+      where: { email: userData.email },
+    });
+    
+    let isNewUser = false;
+    let invitationToken: string | undefined;
+
+    if (!user) {
+      // Create a partial user account
+      isNewUser = true;
+      user = this.userRepository.create({
+        email: userData.email,
+        emailVerified: false,
+        // No password set - will be set when user completes registration
       });
-      if (!group) {
-        Logger.error(
-          `Add user to group error: Group not found (id: ${groupId})`
-        );
-        throw new Error("Group not found");
-      }
 
-      // Find user
-      const user = await this.userRepository.findOne({
-        where: { email: userData.email },
-      });
-      if (!user) {
-        Logger.error(
-          `Add user to group error: User not found (email: ${userData.email})`
-        );
-        throw new Error("User not found");
-      }
+      user = await this.userRepository.save(user);
 
-      const { passwordHash, ...userWithoutPassword } = user;
-
-      // Find role
-      const role = await this.roleRepository.findOne({
-        where: { id: userData.roleId },
-      });
-      if (!role) {
-        Logger.error(
-          `Add user to group error: Role not found (id: ${userData.roleId})`
-        );
-        throw new Error("Role not found");
-      }
-
-      // Check if user is already in the group
-      const existingUserGroupRole = await this.userGroupRoleRepository.findOne({
-        where: {
-          user: { id: user.id },
-          group: { id: groupId },
+      // Generate invitation token
+      invitationToken = jwt.sign(
+        {
+          sub: user.id,
+          email: user.email,
+          type: "invitation",
+          groupId,
+          roleId: role.id,
         },
+        authConfig.jwtSecret,
+        { expiresIn: "7d" } // Token valid for 7 days
+      );
+
+      // Send invitation email here
+      // await this.emailService.sendInvitationEmail(user.email, invitationToken);
+    }
+
+    // Check if user is already in the group
+    const existingUserGroupRole = await this.userGroupRoleRepository.findOne({
+      where: {
+        user: { id: user.id },
+        group: { id: groupId },
+      },
+    });
+
+    if (existingUserGroupRole) {
+      // Update role if user already in group
+      existingUserGroupRole.role = role;
+      await this.userGroupRoleRepository.save(existingUserGroupRole);
+    } else {
+      // Add user to group
+      const userGroupRole = this.userGroupRoleRepository.create({
+        user,
+        group,
+        role,
       });
 
-      if (existingUserGroupRole) {
-        // Update role
-        existingUserGroupRole.role = role;
-        return this.userGroupRoleRepository.save(existingUserGroupRole);
-      } else {
-        // Add user to group
-        const userGroupRole = this.userGroupRoleRepository.create({
-          user: userWithoutPassword,
-          group,
-          role,
-        });
+      await this.userGroupRoleRepository.save(userGroupRole);
+    }
 
-        return this.userGroupRoleRepository.save(userGroupRole);
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        Logger.error(`Add user to group error: ${error.message}`);
-        throw new Error(error.message);
-      } else {
-        Logger.error("Add user to group error: An unknown error occurred");
-        throw new Error("An unknown error occurred");
-      }
+    // Return response without passwordHash
+    const { passwordHash, ...userWithoutPassword } = user;
+
+    return {
+      user: {
+        id: userWithoutPassword.id,
+        email: userWithoutPassword.email,
+      },
+      isNewUser,
+      invitationToken, // Only included for new users
+      role: {
+        id: role.id,
+        name: role.name,
+      },
+      group: {
+        id: group.id,
+        name: group.name,
+      },
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      Logger.error(`Add user to group error: ${error.message}`);
+      throw new Error(error.message);
+    } else {
+      Logger.error("Add user to group error: An unknown error occurred");
+      throw new Error("An unknown error occurred");
     }
   }
+}
+
+  // async addUserToGroup(
+  //   groupId: number,
+  //   userData: { email: string; roleId: number }
+  // ) {
+  //   try {
+  //     // Find group
+  //     const group = await this.groupRepository.findOne({
+  //       where: { id: groupId },
+  //     });
+  //     if (!group) {
+  //       Logger.error(
+  //         `Add user to group error: Group not found (id: ${groupId})`
+  //       );
+  //       throw new Error("Group not found");
+  //     }
+
+  //     // Find user
+  //     const user = await this.userRepository.findOne({
+  //       where: { email: userData.email },
+  //     });
+  //     if (!user) {
+  //       Logger.error(
+  //         `Add user to group error: User not found (email: ${userData.email})`
+  //       );
+  //       throw new Error("User not found");
+  //     }
+
+  //     const { passwordHash, ...userWithoutPassword } = user;
+
+  //     // Find role
+  //     const role = await this.roleRepository.findOne({
+  //       where: { id: userData.roleId },
+  //     });
+  //     if (!role) {
+  //       Logger.error(
+  //         `Add user to group error: Role not found (id: ${userData.roleId})`
+  //       );
+  //       throw new Error("Role not found");
+  //     }
+
+  //     // Check if user is already in the group
+  //     const existingUserGroupRole = await this.userGroupRoleRepository.findOne({
+  //       where: {
+  //         user: { id: user.id },
+  //         group: { id: groupId },
+  //       },
+  //     });
+
+  //     if (existingUserGroupRole) {
+  //       // Update role
+  //       existingUserGroupRole.role = role;
+  //       return this.userGroupRoleRepository.save(existingUserGroupRole);
+  //     } else {
+  //       // Add user to group
+  //       const userGroupRole = this.userGroupRoleRepository.create({
+  //         user: userWithoutPassword,
+  //         group,
+  //         role,
+  //       });
+
+  //       return this.userGroupRoleRepository.save(userGroupRole);
+  //     }
+  //   } catch (error) {
+  //     if (error instanceof Error) {
+  //       Logger.error(`Add user to group error: ${error.message}`);
+  //       throw new Error(error.message);
+  //     } else {
+  //       Logger.error("Add user to group error: An unknown error occurred");
+  //       throw new Error("An unknown error occurred");
+  //     }
+  //   }
+  // }
 
   async removeUserFromGroup(groupId: number, userId: number) {
     try {
@@ -455,5 +576,108 @@ export class GroupService {
     // Remove group
     await this.groupRepository.remove(group);
     return true;
+  }
+
+  async completeRegistration(
+    token: string,
+    userData: { password: string; firstName: string; lastName: string }
+  ): Promise<any> {
+    const payload: any = jwt.verify(token, authConfig.jwtSecret);
+
+    if (payload.type !== "invitation") {
+      throw new Error("Invalid token type");
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: payload.userId },
+    });
+
+    if (!user) {
+      Logger.error(
+        `Complete registration error: User not found (id: ${payload.userId})`
+      );
+      throw new Error("User not found");
+    }
+
+    if (user.passwordHash) {
+      throw new Error("Account already activated");
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    user.passwordHash = hashedPassword;
+    user.firstName = userData.firstName;
+    user.lastName = userData.lastName;
+    user.emailVerified = true;
+
+    await this.userRepository.save(user);
+
+    // Format group roles for token
+    const groupRoles = await this.userGroupRoleRepository.find({
+      where: { user: { id: user.id } },
+      relations: ["group", "role"],
+    });
+
+    const formattedGroupRoles = groupRoles.map((ugr) => ({
+      groupId: ugr.group.id,
+      groupName: ugr.group.name,
+      roleId: ugr.role.id,
+      roleName: ugr.role.name,
+    }));
+
+    // Generate JWT token
+
+    const payloadForToken = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      groupRoles: formattedGroupRoles,
+    };
+
+    // access token and refresh token
+
+    const accessToken = jwt.sign(payloadForToken, authConfig.jwtSecret, {
+      expiresIn: Number(authConfig.jwtExpiresIn) || "24h",
+    });
+
+    const refreshToken = jwt.sign(payloadForToken, authConfig.jwtSecret, {
+      expiresIn: Number(authConfig.jwtRefreshExpiresIn) || "30d",
+    });
+
+    user.refreshToken = refreshToken;
+    await this.userRepository.save(user);
+
+    // Send email to user with the access token and refresh token
+    // await this.emailService.sendRegistrationEmail(user.email, accessToken, refreshToken);
+
+    // For now, just log the tokens
+    Logger.info(`Access Token: ${accessToken}`);
+    Logger.info(`Refresh Token: ${refreshToken}`);
+
+    // Return the tokens
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        groupRoles: formattedGroupRoles,
+      },
+    };
+  }
+
+  changeUserRoleInGroup(groupId: number, userId: number, newRoleId: number) {
+    return this.userGroupRoleRepository
+      .createQueryBuilder()
+      .update(UserGroupRole)
+      .set({ role: { id: newRoleId } })
+      .where("userId = :userId AND groupId = :groupId", {
+        userId,
+        groupId,
+      })
+      .execute();
   }
 }

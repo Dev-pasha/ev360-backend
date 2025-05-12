@@ -85,6 +85,8 @@ export class PlayerController {
       const { groupId } = req.params;
       const { playerId } = req.query;
 
+      console.log("GetPlayerById");
+
       const player = await this.playerService.getPlayerById(
         Number(playerId),
         +groupId
@@ -166,72 +168,6 @@ export class PlayerController {
     }
   };
 
-  AssignPlayer = async (req: Request, res: Response): Promise<void> => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res
-        .status(400)
-        .json(errorResponse("Player Team Assignment failed", 400, errors));
-      return;
-    }
-
-    try {
-      const { groupId } = req.params;
-      const { playerIds, teamId } = req.body;
-
-      const updatedPlayers = await this.playerService.addPlayersToTeam(
-        playerIds,
-        +groupId,
-        teamId
-      );
-
-      res.status(200).json(
-        successResponse({
-          message: "Players assigned to team successfully",
-          updatedPlayers,
-        })
-      );
-    } catch (error) {
-      Logger.error("Error in assigning players to team: ", error);
-      res
-        .status(400)
-        .json(errorResponse("Failed to assign players to team", 400, error));
-    }
-  };
-
-  DeAssignPlayer = async (req: Request, res: Response): Promise<void> => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res
-        .status(400)
-        .json(errorResponse("Player Team Removal failed", 400, errors));
-      return;
-    }
-
-    try {
-      const { groupId } = req.params;
-      const { playerIds, teamId } = req.body;
-
-      const updatedPlayers = await this.playerService.removePlayersFromTeam(
-        playerIds,
-        +groupId,
-        teamId
-      );
-
-      res.status(200).json(
-        successResponse({
-          message: "Players removed from team successfully",
-          updatedPlayers,
-        })
-      );
-    } catch (error) {
-      Logger.error("Error in removing players from team: ", error);
-      res
-        .status(400)
-        .json(errorResponse("Failed to remove players from team", 400, error));
-    }
-  };
-
   CreatePlayerAccount = async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -268,4 +204,71 @@ export class PlayerController {
         .json(errorResponse("Failed to create player account", 400, error));
     }
   };
+
+  // AssignPlayer = async (req: Request, res: Response): Promise<void> => {
+  //   const errors = validationResult(req);
+  //   if (!errors.isEmpty()) {
+  //     res
+  //       .status(400)
+  //       .json(errorResponse("Player Team Assignment failed", 400, errors));
+  //     return;
+  //   }
+
+  //   try {
+  //     const { groupId } = req.params;
+  //     const { playerIds, teamId } = req.body;
+
+  //     const updatedPlayers = await this.playerService.addPlayersToTeam(
+  //       playerIds,
+  //       +groupId,
+  //       teamId
+  //     );
+
+  //     res.status(200).json(
+  //       successResponse({
+  //         message: "Players assigned to team successfully",
+  //         updatedPlayers,
+  //       })
+  //     );
+  //   } catch (error) {
+  //     Logger.error("Error in assigning players to team: ", error);
+  //     res
+  //       .status(400)
+  //       .json(errorResponse("Failed to assign players to team", 400, error));
+  //   }
+  // };
+
+  // DeAssignPlayer = async (req: Request, res: Response): Promise<void> => {
+  //   const errors = validationResult(req);
+  //   if (!errors.isEmpty()) {
+  //     res
+  //       .status(400)
+  //       .json(errorResponse("Player Team Removal failed", 400, errors));
+  //     return;
+  //   }
+
+  //   try {
+  //     const { groupId } = req.params;
+  //     const { playerIds, teamId } = req.body;
+
+  //     const updatedPlayers = await this.playerService.removePlayersFromTeam(
+  //       playerIds,
+  //       +groupId,
+  //       teamId
+  //     );
+
+  //     res.status(200).json(
+  //       successResponse({
+  //         message: "Players removed from team successfully",
+  //         updatedPlayers,
+  //       })
+  //     );
+  //   } catch (error) {
+  //     Logger.error("Error in removing players from team: ", error);
+  //     res
+  //       .status(400)
+  //       .json(errorResponse("Failed to remove players from team", 400, error));
+  //   }
+  // };
+
 }

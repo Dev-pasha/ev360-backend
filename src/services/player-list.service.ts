@@ -234,6 +234,7 @@ export class PlayerListService {
         },
       });
 
+
       // Check for missing players
       const foundIds = players.map((p) => p.id);
       const missingIds = playerIdArray.filter((id) => !foundIds.includes(id));

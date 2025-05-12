@@ -26,6 +26,8 @@ export class TeamController {
       const { groupId } = req.params;
       const { teamData } = req.body;
 
+
+
       const newTeam = await this.teamService.createTeam(+groupId, teamData);
 
       res.status(201).json(

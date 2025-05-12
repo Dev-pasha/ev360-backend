@@ -17,6 +17,7 @@ import { User } from "../entities/user.entity";
 import bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
 import authConfig from "../config/auth";
+import { PlayerList } from "../entities/player-list.entity";
 
 interface TokenPayload {
   playerId: number;
@@ -62,6 +63,7 @@ export class PlayerService {
   private categoryRepository;
   private groupTemplateCategoryRepository;
   private teamPlayerRepository;
+  private playerListRepository;
   private userRepository;
 
   constructor(private dataSource: DataSource = AppDataSource) {
@@ -75,6 +77,7 @@ export class PlayerService {
     );
     this.teamPlayerRepository = this.dataSource.getRepository(TeamPlayer);
     this.userRepository = this.dataSource.getRepository(User);
+    this.playerListRepository = this.dataSource.getRepository(PlayerList);
   }
 
   async createPlayer(
@@ -181,23 +184,21 @@ export class PlayerService {
         : undefined,
     } as Player);
 
-    // if (playerData.playerList && playerData.playerList.length > 0) {
-    //   // Fetch the player lists by their IDs
-    //   const playerLists = await this.playerListRepository.findByIds(
-    //     playerData.playerList,
-    //     {
-    //       where: { group: { id: groupId } }, // Ensure they belong to the correct group
-    //     }
-    //   );
+    if (playerData.playerList && playerData.playerList.length > 0) {
+      // Fetch the player lists by their IDs
+      const playerLists = await this.playerListRepository.findBy({
+        id: In(playerData.playerList),
+        group: { id: groupId },
+      });
 
-    //   // Check if all player lists were found
-    //   if (playerLists.length !== playerData.playerList.length) {
-    //     throw new Error("One or more player lists not found");
-    //   }
+      // Check if all player lists were found
+      if (playerLists.length !== playerData.playerList.length) {
+        throw new Error("One or more player lists not found");
+      }
 
-    //   // Assign the player lists to the player
-    //   player.player_lists = playerLists;
-    // }
+      // Assign the player lists to the player
+      player.player_lists = playerLists;
+    }
 
     if (playerData.categories && playerData.categories.length > 0) {
       // Assign the categories to the player
@@ -223,61 +224,61 @@ export class PlayerService {
     return player;
   }
 
- async getGroupPlayers(
-  groupId: number,
-  filters?: {
-    search?: string;
-    position?: string;
-    teamId?: number;
-    isArchived?: boolean;
-  }
-): Promise<Player[]> {
-  let query = this.playerRepository
-    .createQueryBuilder("player")
-    .leftJoinAndSelect("player.primary_position", "primaryPosition")
-    .leftJoinAndSelect("player.secondary_position", "secondaryPosition")
-    .leftJoinAndSelect("player.team", "team")
-    .leftJoinAndSelect("player.categories", "categories")
-    .where("player.groupId = :groupId", { groupId }); // Fixed this line
-
-  if (filters) {
-    if (filters.search) {
-      query = query.andWhere(
-        "(player.first_name ILIKE :search OR player.last_name ILIKE :search OR player.email ILIKE :search)",
-        { search: `%${filters.search}%` }
-      );
+  async getGroupPlayers(
+    groupId: number,
+    filters?: {
+      search?: string;
+      position?: string;
+      teamId?: number;
+      isArchived?: boolean;
     }
+  ): Promise<Player[]> {
+    let query = this.playerRepository
+      .createQueryBuilder("player")
+      .leftJoinAndSelect("player.primary_position", "primaryPosition")
+      .leftJoinAndSelect("player.secondary_position", "secondaryPosition")
+      .leftJoinAndSelect("player.team", "team")
+      .leftJoinAndSelect("player.categories", "categories")
+      .where("player.groupId = :groupId", { groupId }); // Changed to camelCase
 
-    if (filters.position) {
-      query = query.andWhere(
-        "(player.primary_position_id = :positionId OR player.secondary_position_id = :positionId)",
-        { positionId: filters.position }
-      );
-    }
+    if (filters) {
+      if (filters.search) {
+        query = query.andWhere(
+          "(player.first_name ILIKE :search OR player.last_name ILIKE :search OR player.email ILIKE :search)",
+          { search: `%${filters.search}%` }
+        );
+      }
 
-    if (filters.teamId) {
-      query = query.andWhere("player.teamId = :teamId", { teamId: filters.teamId });
-    }
+      if (filters.position) {
+        query = query.andWhere(
+          "(player.primary_positionId = :positionId OR player.secondary_positionId = :positionId)",
+          { positionId: filters.position }
+        );
+      }
 
-    if (filters.isArchived !== undefined) {
-      query = query.andWhere("player.archived = :isArchived", {
-        isArchived: filters.isArchived,
-      });
+      if (filters.teamId) {
+        query = query.andWhere("player.teamId = :teamId", {
+          teamId: filters.teamId,
+        });
+      }
+
+      if (filters.isArchived !== undefined) {
+        query = query.andWhere("player.archived = :isArchived", {
+          isArchived: filters.isArchived,
+        });
+      } else {
+        query = query.andWhere("player.archived = false");
+      }
     } else {
-      // Default to showing non-archived players
       query = query.andWhere("player.archived = false");
     }
-  } else {
-    // Default to showing non-archived players
-    query = query.andWhere("player.archived = false");
+
+    query = query
+      .orderBy("player.last_name", "ASC")
+      .addOrderBy("player.first_name", "ASC");
+
+    return query.getMany();
   }
-
-  // Add default ordering
-  query = query.orderBy("player.last_name", "ASC")
-    .addOrderBy("player.first_name", "ASC");
-
-  return query.getMany();
-}
 
   async updatePlayer(
     groupId: number,
@@ -490,8 +491,8 @@ export class PlayerService {
         "secondary_position",
         "team",
         "categories",
-        "player_lists",
         "group",
+        "player_lists",
       ],
     });
 

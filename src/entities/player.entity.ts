@@ -75,6 +75,7 @@ export class Player {
   gender!: Gender;
 
   @ManyToOne(() => Group, { nullable: false })
+  @JoinColumn({ name: "groupId" }) // Add this line
   group!: Group;
 
   @Column({ nullable: true })
@@ -89,7 +90,8 @@ export class Player {
   secondary_position!: Position | null;
 
   @ManyToOne(() => User, { nullable: true })
-  user!: User;
+  @JoinColumn({ name: "userId" })
+  user!: User | null;
 
   @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
   height!: number;
@@ -142,9 +144,15 @@ export class Player {
   archived!: boolean;
 
   @ManyToOne(() => Team, (team) => team.players, { nullable: true })
+  @JoinColumn({ name: "teamId" }) // Add this line
   team!: Team | null;
 
   @ManyToMany(() => PlayerList, (playerList) => playerList.players)
+  // @JoinTable({
+  //   name: "player_list_players",
+  //   joinColumn: { name: "player_id", referencedColumnName: "id" },
+  //   inverseJoinColumn: { name: "player_list_id", referencedColumnName: "id" },
+  // })
   player_lists!: PlayerList[];
 
   @CreateDateColumn()

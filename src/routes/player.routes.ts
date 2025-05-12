@@ -118,50 +118,6 @@ router.get(
 );
 
 /**
- * @route   POST /api/v1/player-group/:groupId/assign
- * @desc    Assign player to a group
- * @access  Private
- *
- */
-
-router.post(
-  "/:groupId/assign",
-  authMiddleware,
-  requirePermission("assign_players") as RequestHandler,
-  [
-    param("groupId")
-      .notEmpty()
-      .isInt()
-      .withMessage("Group ID must be an integer"),
-    body("playerIds").isArray().withMessage("Player IDs must be an array"),
-    body("teamId").notEmpty(),
-  ],
-  playerController.AssignPlayer
-);
-
-/**
- * @route   POST /api/v1/player-group/:groupId/deassign
- * @desc    Assign player to a group
- * @access  Private
- *
- */
-
-router.post(
-  "/:groupId/deassign",
-  authMiddleware,
-  requirePermission("deassign_players") as RequestHandler,
-  [
-    param("groupId")
-      .notEmpty()
-      .isInt()
-      .withMessage("Group ID must be an integer"),
-    body("playerIds").isArray().withMessage("Player IDs must be an array"),
-    body("teamId").notEmpty(),
-  ],
-  playerController.DeAssignPlayer
-);
-
-/**
  * @route   POST /api/v1/player-group/:groupId/create-account
  * @desc    Assign player to a group
  * @access  Private
@@ -177,7 +133,7 @@ router.post(
       .notEmpty()
       .isInt()
       .withMessage("Group ID must be an integer"),
-    body("playerIds").isArray().withMessage("Player IDs must be an array"),
+    query("token").notEmpty().withMessage("Token is required"),
     body("password").notEmpty(),
   ],
   playerController.CreatePlayerAccount

@@ -39,30 +39,36 @@ export class TeamService {
         throw new EntityNotFoundError(Group, { id: groupId });
       }
 
-      const isCoachValid = teamData.coach_id
-        ? await this.playerRepository.findOne({
-            where: {
-              id: teamData.coach_id,
-              group: { id: groupId },
-            },
-          })
-        : true;
+      // Validate coach if provided
+      let coach = null;
+      if (teamData.coach_id) {
+        coach = await this.userRepository.findOne({
+          where: { id: teamData.coach_id },
+        });
 
-      // Create the team without players first
+        if (!coach) {
+          throw new EntityNotFoundError(User, { id: teamData.coach_id });
+        }
+      }
+
+      // Create the team
       const team = this.teamRepository.create({
         group,
         name: teamData.name,
-        coach: isCoachValid ? { id: teamData.coach_id } : null,
+        coach: coach,
       });
 
       // Save the team
       const savedTeam = await this.teamRepository.save(team);
 
-      // If there are player IDs, add the players to the team
+      // If there are player IDs, check if they're already on teams
       if (teamData.player_ids && teamData.player_ids.length > 0) {
-        const players = await this.playerRepository.findBy({
-          id: In(teamData.player_ids),
-          group: { id: groupId }, // Ensure players belong to the same group
+        const players = await this.playerRepository.find({
+          where: {
+            id: In(teamData.player_ids),
+            group: { id: groupId },
+          },
+          relations: ["team"], // Load current team relationships
         });
 
         if (players.length !== teamData.player_ids.length) {
@@ -75,33 +81,36 @@ export class TeamService {
           );
         }
 
-        // If using direct player-team relationship (more common)
-        //   await this.dataSource.transaction(async (transactionalEntityManager) => {
-        //     const playerRepo = transactionalEntityManager.getRepository(Player);
+        // Check if any players are already on other teams
+        const playersOnOtherTeams = players.filter((p) => p.team !== null);
 
-        //     // Update each player to belong to this team
-        //     for (const player of players) {
-        //       player.team = savedTeam;
-        //       await playerRepo.save(player);
-        //     }
-        //   });
+        if (playersOnOtherTeams.length > 0) {
+          const playerDetails = playersOnOtherTeams.map(
+            (p) =>
+              `${p.first_name} ${p.last_name} (currently on team: ${p.team!.name})`
+          );
+          throw new Error(
+            `Cannot create team with players already on other teams: ${playerDetails.join(", ")}`
+          );
+        }
 
-        // If using TeamPlayer join table (uncomment if this is your approach)
+        // All players are free to assign
+        await this.dataSource.transaction(
+          async (transactionalEntityManager) => {
+            const playerRepo = transactionalEntityManager.getRepository(Player);
 
-        const teamPlayers = players.map((player) => {
-          return this.teamPlayerRepository.create({
-            player: player,
-            team: savedTeam,
-          });
-        });
-
-        await this.teamPlayerRepository.save(teamPlayers);
+            for (const player of players) {
+              player.team = savedTeam;
+              await playerRepo.save(player);
+            }
+          }
+        );
       }
 
       // Return the team with all relations loaded
       const teamWithRelations = await this.teamRepository.findOne({
         where: { id: savedTeam.id },
-        relations: ["group", "players"],
+        relations: ["group", "players", "coach"],
       });
 
       if (!teamWithRelations) {
@@ -242,7 +251,7 @@ export class TeamService {
           id: teamId,
           group: { id: groupId },
         },
-        relations: ["teamPlayers"],
+        relations: ["players"],
       });
 
       if (!team) {
@@ -271,68 +280,60 @@ export class TeamService {
   }
 
   async addPlayersToTeamBatch(
-    groupId: number,
-    teamId: number,
-    playerIds: number | number[]
-  ): Promise<{ added: number }> {
-    try {
-      const playerIdArray = Array.isArray(playerIds) ? playerIds : [playerIds];
-
-      if (playerIdArray.length === 0) {
-        throw new Error("No players specified");
-      }
-
-      // Verify team exists
-      const teamExists = await this.teamRepository.exist({
-        where: { id: teamId, group: { id: groupId } },
-      });
-
-      if (!teamExists) {
-        throw new EntityNotFoundError(Team, { id: teamId, groupId });
-      }
-
-      // Verify players exist and belong to the group
-      const validPlayers = await this.playerRepository.count({
-        where: {
-          id: In(playerIdArray),
-          group: { id: groupId },
-        },
-      });
-
-      if (validPlayers !== playerIdArray.length) {
-        throw new Error("Some players not found or don't belong to this group");
-      }
-
-      const result = await this.dataSource.transaction(
-        async (transactionalEntityManager) => {
-          // Insert team-player relationships, ignoring duplicates
-          const query = transactionalEntityManager
-            .createQueryBuilder()
-            .insert()
-            .into(TeamPlayer)
-            .values(
-              playerIdArray.map((playerId) => ({
-                team: { id: teamId },
-                player: { id: playerId },
-              }))
-            )
-            .orIgnore(); // Ignore duplicate entries
-
-          const insertResult = await query.execute();
-
-          return {
-            added:
-              insertResult.raw.affectedRows || insertResult.identifiers.length,
-          };
-        }
-      );
-
-      return result;
-    } catch (error) {
-      console.error(`Error batch adding players to team ${teamId}:`, error);
-      throw error;
+  groupId: number,
+  teamId: number,
+  playerIds: number | number[]
+): Promise<{ added: number }> {
+  try {
+    const playerIdArray = Array.isArray(playerIds) ? playerIds : [playerIds];
+    
+    if (playerIdArray.length === 0) {
+      throw new Error("No players specified");
     }
+
+    // Verify team exists
+    const teamExists = await this.teamRepository.exist({
+      where: { id: teamId, group: { id: groupId } }
+    });
+
+    if (!teamExists) {
+      throw new EntityNotFoundError(Team, { id: teamId, groupId });
+    }
+
+    // Verify players exist and belong to the group
+    const validPlayerCount = await this.playerRepository.count({
+      where: {
+        id: In(playerIdArray),
+        group: { id: groupId }
+      }
+    });
+
+    if (validPlayerCount !== playerIdArray.length) {
+      throw new Error("Some players not found or don't belong to this group");
+    }
+
+    const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Update players to assign them to the team
+      const updateResult = await transactionalEntityManager
+        .createQueryBuilder()
+        .update(Player)
+        .set({ team: { id: teamId } })
+        .where("id IN (:...playerIds)", { playerIds: playerIdArray })
+        .andWhere("groupId = :groupId", { groupId })
+        .execute();
+      
+      return {
+        added: updateResult.affected || 0
+      };
+    });
+
+    return result;
+    
+  } catch (error) {
+    console.error(`Error batch adding players to team ${teamId}:`, error);
+    throw error;
   }
+}
 
   async removePlayersFromTeamBatch(
     groupId: number,
@@ -357,18 +358,18 @@ export class TeamService {
 
       const result = await this.dataSource.transaction(
         async (transactionalEntityManager) => {
-          const deleteResult = await transactionalEntityManager
+          // Since we're using direct relationships, update the Player entities
+          const updateResult = await transactionalEntityManager
             .createQueryBuilder()
-            .delete()
-            .from(TeamPlayer)
+            .update(Player)
+            .set({ team: null })
             .where("teamId = :teamId", { teamId })
-            .andWhere("playerId IN (:...playerIds)", {
-              playerIds: playerIdArray,
-            })
+            .andWhere("id IN (:...playerIds)", { playerIds: playerIdArray })
+            .andWhere("groupId = :groupId", { groupId }) // Extra safety check
             .execute();
 
           return {
-            removed: deleteResult.affected || 0,
+            removed: updateResult.affected || 0,
           };
         }
       );
@@ -379,7 +380,6 @@ export class TeamService {
       throw error;
     }
   }
-
   async getTeamPlayers(groupId: number, teamId: number): Promise<Player[]> {
     const teamPlayers = await this.teamPlayerRepository.find({
       where: {

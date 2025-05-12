@@ -9,7 +9,7 @@ const router = Router();
 const playerListController = new PlayerListController();
 
 /**
- * @route   POST /api/v1/player-lists/:groupId
+ * @route   POST /api/v1/player-list/:groupId
  * @desc    Create a new player list
  * @access  Private
  */
@@ -32,7 +32,7 @@ router.post(
 );
 
 /**
- * @route   GET /api/v1/player-lists/:groupId
+ * @route   GET /api/v1/player-list/:groupId
  * @desc    Get all player lists for a group
  * @access  Private
  */
@@ -50,7 +50,7 @@ router.get(
 );
 
 /**
- * @route   GET /api/v1/player-lists/:groupId/:listId
+ * @route   GET /api/v1/player-list/:groupId/:listId
  * @desc    Get a specific player list with players
  * @access  Private
  */
@@ -72,7 +72,7 @@ router.get(
 );
 
 /**
- * @route   PUT /api/v1/player-lists/:groupId/:listId
+ * @route   PUT /api/v1/player-list/:groupId/:listId
  * @desc    Update a player list
  * @access  Private
  */
@@ -99,7 +99,7 @@ router.put(
 );
 
 /**
- * @route   DELETE /api/v1/player-lists/:groupId/:listId
+ * @route   DELETE /api/v1/player-list/:groupId/:listId
  * @desc    Delete a player list
  * @access  Private
  */
@@ -121,7 +121,7 @@ router.delete(
 );
 
 /**
- * @route   POST /api/v1/player-lists/:groupId/:listId/players
+ * @route   POST /api/v1/player-list/:groupId/:listId/players
  * @desc    Manage players in a list (add/remove)
  * @access  Private
  */
@@ -159,7 +159,7 @@ router.post(
 );
 
 /**
- * @route   GET /api/v1/player-lists/:groupId/player/:playerId
+ * @route   GET /api/v1/player-list/:groupId/player/:playerId
  * @desc    Get lists containing a specific player
  * @access  Private
  */

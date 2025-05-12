@@ -318,6 +318,7 @@ export class PlayerListController {
         return;
       }
 
+      console.log("ManageListPlayers");
       const { groupId, listId } = req.params;
       const { action, playerIds } = req.body;
 

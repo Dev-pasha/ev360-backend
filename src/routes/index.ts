@@ -22,7 +22,7 @@ router.use("/evaluation-template", templates);
 router.use("/group-template", groupTemplateRoutes);
 router.use("/group-position", positions);
 router.use("/player-group", groupPlayer);
-router.use("team", team);
+router.use("/team", team);
 router.use("/player-list", playerListRoutes);
 // router.use("/player", playerRoutes);
 // router.use("/team", teamRoutes);

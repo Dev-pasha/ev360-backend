@@ -161,6 +161,13 @@ router.get(
 //   authController.GetGroupPermissions
 // );
 
+/**
+ * @route   PUT /api/v1/group/delete
+ * @desc    Change user role in group
+ * @access  Private
+ */
+
+
 router.delete(
   "/delete",
   authMiddleware,
@@ -171,5 +178,27 @@ router.delete(
   ],
   authController.DeleteGroup
 );
+
+
+// change the user role in group
+
+/**
+ * @route   PUT /api/v1/group/:id/user/:userId/role
+ * @desc    Change user role in group
+ * @access  Private
+ */
+
+router.put(
+  "/:groupId/user/:userId/role",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    param("userId").isInt().withMessage("User ID must be an integer"),
+    body("roleId").isInt().withMessage("Role ID must be an integer"),
+  ],
+  authController.ChangeUserRoleInGroup
+);
+
 
 export default router;

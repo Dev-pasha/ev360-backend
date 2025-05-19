@@ -325,4 +325,37 @@ export class GroupController {
       res.status(400).json(errorResponse("Group deletion failed", 400, error));
     }
   };
+
+  ChangeUserRoleInGroup = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      // Validate request
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res
+          .status(400)
+          .json(errorResponse("Failed to change user role in group", 400, errors));
+        return;
+      }
+
+      const { groupId, userId } = req.params;
+      const { roleId } = req.body;
+
+      // Change user role in group
+      await this.groupService.changeUserRoleInGroup(
+        parseInt(groupId),
+        parseInt(userId),
+        parseInt(roleId)
+      );
+
+      res.json(successResponse("User role changed successfully"));
+    } catch (error) {
+      Logger.error("Error in changing user role in group: ", error);
+      res
+        .status(400)
+        .json(errorResponse("Failed to change user role in group", 400, error));
+    }
+  };
 }

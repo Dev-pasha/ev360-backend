@@ -234,6 +234,8 @@ export class EventService {
         refreshToken: "",
         passwordHash: "",
         userGroupRoles: event.created_by.userGroupRoles || [],
+        subscriptions: event.created_by.subscriptions || [],
+        is_account_owner: event.created_by.is_account_owner,
       },
     };
 

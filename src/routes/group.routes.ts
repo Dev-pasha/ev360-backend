@@ -3,6 +3,7 @@ import { body, param, query } from "express-validator";
 import { GroupController } from "../controllers/group.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { requirePermission } from "../middleware/permission.middleware";
+import { canCreateGroupMiddleware } from "../middleware/subscription.middleware";
 
 const router = Router();
 const authController = new GroupController();
@@ -17,6 +18,11 @@ router.post(
   "/",
   [body("name").notEmpty().withMessage("Group name is required")],
   authMiddleware,
+  requirePermission("create_groups") as RequestHandler,
+  canCreateGroupMiddleware,
+  [
+    body("name").notEmpty().withMessage("Group name is required"),
+  ],
   authController.CreateGroup
 );
 

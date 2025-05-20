@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from "typeorm";
 import { UserGroupRole } from "./user-group-role.entity";
+import { Subscription } from "./subscription.entity";
 
 @Entity("users")
 export class User {
@@ -45,4 +46,10 @@ export class User {
 
   @OneToMany(() => UserGroupRole, (userGroupRole) => userGroupRole.user)
   userGroupRoles!: UserGroupRole[];
+
+  @OneToMany(() => Subscription, subscription => subscription.user)
+  subscriptions!: Subscription[];
+
+  @Column({ type: "boolean", default: false })
+  is_account_owner!: boolean;
 }

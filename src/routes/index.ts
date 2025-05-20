@@ -14,6 +14,7 @@ import groupPlayer from "./player.routes";
 import team from "./team.routes";
 import playerListRoutes from "./player-list.routes";
 import events from "./event.routes";
+import subscriptionRoutes from "./subscription.routes";
 const router = Router();
 
 // Mount routes
@@ -26,6 +27,7 @@ router.use("/player-group", groupPlayer);
 router.use("/team", team);
 router.use("/player-list", playerListRoutes);
 router.use("/events", events);
+router.use("/subscriptions", subscriptionRoutes);
 // router.use("/team", teamRoutes);
 router.get("/test", (req, res) => {
   res.json({ message: "Auth route is working!" });

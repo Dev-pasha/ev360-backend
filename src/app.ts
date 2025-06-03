@@ -22,7 +22,7 @@ config();
 app.use(helmet());
 app.use(
   cors({
-    origin: "http://localhost:3000", // Your frontend URL
+    origin: ["http://localhost:3000", "http://localhost:3001"],
     credentials: true, // This is crucial for cookies!
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -35,8 +35,7 @@ app.use(requestLogger);
 
 // Register routes
 
-
-app.use('/api/v1/saas', saasRoutes);
+app.use("/api/v1", saasRoutes);
 app.use("/api/v1", routes);
 
 // Health check endpoint

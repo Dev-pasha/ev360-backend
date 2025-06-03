@@ -1,8 +1,17 @@
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { AppDataSource } from "../config/database";
-import { SubscriptionPlan, BillingCycle } from "../entities/subscription-plan.entity";
-import { Subscription, SubscriptionStatus } from "../entities/subscription.entity";
-import { BillingInvoice, InvoiceStatus } from "../entities/billing-invoice.entity";
+import {
+  SubscriptionPlan,
+  BillingCycle,
+} from "../entities/subscription-plan.entity";
+import {
+  Subscription,
+  SubscriptionStatus,
+} from "../entities/subscription.entity";
+import {
+  BillingInvoice,
+  InvoiceStatus,
+} from "../entities/billing-invoice.entity";
 import { User } from "../entities/user.entity";
 import { Group } from "../entities/group.entity";
 import Logger from "../config/logger";
@@ -15,7 +24,8 @@ export class SubscriptionService {
   private groupRepository: Repository<Group>;
 
   constructor() {
-    this.subscriptionPlanRepository = AppDataSource.getRepository(SubscriptionPlan);
+    this.subscriptionPlanRepository =
+      AppDataSource.getRepository(SubscriptionPlan);
     this.subscriptionRepository = AppDataSource.getRepository(Subscription);
     this.invoiceRepository = AppDataSource.getRepository(BillingInvoice);
     this.userRepository = AppDataSource.getRepository(User);
@@ -62,7 +72,9 @@ export class SubscriptionService {
         throw new Error(`User with ID ${userId} not found`);
       }
 
-      const plan = await this.subscriptionPlanRepository.findOne({ where: { id: planId } });
+      const plan = await this.subscriptionPlanRepository.findOne({
+        where: { id: planId },
+      });
       if (!plan) {
         throw new Error(`Subscription plan with ID ${planId} not found`);
       }
@@ -101,7 +113,7 @@ export class SubscriptionService {
         end_date: endDate,
         trial_end_date: trialEndDate,
         external_subscription_id: options.external_subscription_id || null,
-        metadata: options.metadata || null
+        metadata: options.metadata || null,
       });
 
       return await this.subscriptionRepository.save(subscription);
@@ -125,7 +137,7 @@ export class SubscriptionService {
     try {
       const subscription = await this.subscriptionRepository.findOne({
         where: { id: subscriptionId },
-        relations: ["user", "plan"]
+        relations: ["user", "plan"],
       });
 
       if (!subscription) {
@@ -152,9 +164,9 @@ export class SubscriptionService {
           {
             description: `Subscription to ${subscription.plan.name} (${subscription.plan.billing_cycle})`,
             amount: subscription.plan.price,
-            quantity: 1
-          }
-        ]
+            quantity: 1,
+          },
+        ],
       });
 
       return await this.invoiceRepository.save(invoice);
@@ -171,7 +183,7 @@ export class SubscriptionService {
     try {
       const user = await this.userRepository.findOne({
         where: { id: userId },
-        relations: ["subscriptions", "subscriptions.plan"]
+        relations: ["subscriptions", "subscriptions.plan"],
       });
 
       if (!user) {
@@ -180,7 +192,9 @@ export class SubscriptionService {
 
       // Find active subscription
       const activeSubscription = user.subscriptions.find(
-        sub => sub.status === SubscriptionStatus.ACTIVE || sub.status === SubscriptionStatus.TRIAL
+        (sub) =>
+          sub.status === SubscriptionStatus.ACTIVE ||
+          sub.status === SubscriptionStatus.TRIAL
       );
 
       if (!activeSubscription) {
@@ -189,7 +203,7 @@ export class SubscriptionService {
 
       // Count existing groups
       const groupCount = await this.groupRepository.count({
-        where: { subscription: { id: activeSubscription.id } }
+        where: { subscription: { id: activeSubscription.id } },
       });
 
       return groupCount < activeSubscription.plan.max_groups;
@@ -206,14 +220,17 @@ export class SubscriptionService {
     try {
       const group = await this.groupRepository.findOne({
         where: { id: groupId },
-        relations: ["subscription", "subscription.plan", "userGroupRoles"]
+        relations: ["subscription", "subscription.plan", "userGroupRoles"],
       });
 
       if (!group || !group.subscription) {
         return false;
       }
 
-      return group.userGroupRoles.length < group.subscription.plan.max_users_per_group;
+      return (
+        group.userGroupRoles.length <
+        group.subscription.plan.max_users_per_group
+      );
     } catch (error) {
       Logger.error("Error checking if group can add user:", error);
       throw error;
@@ -227,7 +244,7 @@ export class SubscriptionService {
     try {
       const group = await this.groupRepository.findOne({
         where: { id: groupId },
-        relations: ["subscription", "subscription.plan"]
+        relations: ["subscription", "subscription.plan"],
       });
 
       if (!group || !group.subscription) {
@@ -236,7 +253,7 @@ export class SubscriptionService {
 
       // Count existing players
       const playerCount = await AppDataSource.getRepository("Player").count({
-        where: { group: { id: groupId } }
+        where: { group: { id: groupId } },
       });
 
       return playerCount < group.subscription.plan.max_players_per_group;
@@ -255,7 +272,7 @@ export class SubscriptionService {
   ): Promise<Subscription> {
     try {
       const subscription = await this.subscriptionRepository.findOne({
-        where: { id: subscriptionId }
+        where: { id: subscriptionId },
       });
 
       if (!subscription) {
@@ -266,6 +283,148 @@ export class SubscriptionService {
       return await this.subscriptionRepository.save(subscription);
     } catch (error) {
       Logger.error("Error updating subscription status:", error);
+      throw error;
+    }
+  }
+  async changeSubscriptionPlan(
+    userId: number,
+    newPlanId: number
+  ): Promise<Subscription> {
+    try {
+      // Fix: Use proper TypeORM syntax
+      const activeSubscription = await this.subscriptionRepository
+        .createQueryBuilder("sub")
+        .leftJoinAndSelect("sub.user", "user")
+        .leftJoinAndSelect("sub.plan", "plan")
+        .where("user.id = :userId", { userId })
+        .andWhere("sub.status IN (:...statuses)", {
+          statuses: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL],
+        })
+        .getOne();
+
+      if (!activeSubscription) {
+        throw new Error("No active subscription found for user");
+      }
+
+      // Rest of the method remains the same...
+      const newPlan = await this.subscriptionPlanRepository.findOne({
+        where: { id: newPlanId },
+      });
+
+      if (!newPlan) {
+        throw new Error("New subscription plan not found");
+      }
+
+      if (!newPlan.is_active) {
+        throw new Error("Selected plan is not available");
+      }
+
+      activeSubscription.plan = newPlan;
+
+      const newEndDate = new Date();
+      switch (newPlan.billing_cycle) {
+        case BillingCycle.MONTHLY:
+          newEndDate.setMonth(newEndDate.getMonth() + 1);
+          break;
+        case BillingCycle.QUARTERLY:
+          newEndDate.setMonth(newEndDate.getMonth() + 3);
+          break;
+        case BillingCycle.ANNUAL:
+          newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+          break;
+      }
+
+      activeSubscription.end_date = newEndDate;
+
+      const updatedSubscription =
+        await this.subscriptionRepository.save(activeSubscription);
+
+      Logger.info(
+        `Subscription plan changed for user ${userId} to plan ${newPlanId}`
+      );
+      return updatedSubscription;
+    } catch (error) {
+      Logger.error("Error changing subscription plan:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cancel subscription
+   */
+  async cancelSubscription(userId: number): Promise<Subscription> {
+    try {
+      const activeSubscription = await this.subscriptionRepository.findOne({
+        where: {
+          user: { id: userId },
+          status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL]),
+        },
+        relations: ["user", "plan"],
+      });
+
+      if (!activeSubscription) {
+        throw new Error("No active subscription found for user");
+      }
+
+      // Set status to canceled and end date to now
+      activeSubscription.status = SubscriptionStatus.CANCELED;
+      activeSubscription.end_date = new Date();
+
+      const canceledSubscription =
+        await this.subscriptionRepository.save(activeSubscription);
+
+      Logger.info(`Subscription canceled for user ${userId}`);
+      return canceledSubscription;
+    } catch (error) {
+      Logger.error("Error canceling subscription:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reactivate subscription
+   */
+  async reactivateSubscription(userId: number): Promise<Subscription> {
+    try {
+      const canceledSubscription = await this.subscriptionRepository.findOne({
+        where: {
+          user: { id: userId },
+          status: SubscriptionStatus.CANCELED,
+        },
+        relations: ["user", "plan"],
+        order: { updated_at: "DESC" }, // Get most recent canceled subscription
+      });
+
+      if (!canceledSubscription) {
+        throw new Error("No canceled subscription found for user");
+      }
+
+      // Reactivate subscription
+      canceledSubscription.status = SubscriptionStatus.ACTIVE;
+
+      // Set new end date based on billing cycle
+      const newEndDate = new Date();
+      switch (canceledSubscription.plan.billing_cycle) {
+        case BillingCycle.MONTHLY:
+          newEndDate.setMonth(newEndDate.getMonth() + 1);
+          break;
+        case BillingCycle.QUARTERLY:
+          newEndDate.setMonth(newEndDate.getMonth() + 3);
+          break;
+        case BillingCycle.ANNUAL:
+          newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+          break;
+      }
+
+      canceledSubscription.end_date = newEndDate;
+
+      const reactivatedSubscription =
+        await this.subscriptionRepository.save(canceledSubscription);
+
+      Logger.info(`Subscription reactivated for user ${userId}`);
+      return reactivatedSubscription;
+    } catch (error) {
+      Logger.error("Error reactivating subscription:", error);
       throw error;
     }
   }

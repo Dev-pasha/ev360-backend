@@ -8,8 +8,8 @@ const router = Router();
 const groupTemplateController = new GroupTemplateController();
 
 /**
- * @route   POST /api/v1/group-template/:groupId
- *  @desc    Assign template to group
+ * @route   POST /api/v1/group-templates/:groupId
+ * @desc    Assign template to group
  * @access  Private
  */
 router.post(
@@ -24,7 +24,7 @@ router.post(
 );
 
 /**
- * @route   GET /api/v1/group-template/:groupId
+ * @route   GET /api/v1/group-templates/:groupId
  * @desc    Get assigned template for a group
  * @access  Private
  */
@@ -39,11 +39,10 @@ router.get(
 );
 
 /**
- * @route   GET /api/v1/group-template/template/:groupId
+ * @route   GET /api/v1/group-templates/:groupId/details
  * @desc    Get Group Template Details
  * @access  Private
  */
-
 router.get(
   "/:groupId/details",
   authMiddleware,
@@ -58,11 +57,10 @@ router.get(
 );
 
 /**
- * @route   PUT /api/v1/group-template/:groupTemplateId
+ * @route   PUT /api/v1/group-templates/:groupTemplateId
  * @desc    Update Group Template
  * @access  Private
  */
-
 router.put(
   "/:groupTemplateId",
   authMiddleware,
@@ -75,17 +73,11 @@ router.put(
   groupTemplateController.UpdateGroupTemplate
 );
 
-// CATEGORY ADD
-// POST /group-templates/:id/categories
-// PUT /group-templates/:id/categories/:categoryId
-// DELETE /group-templates/:id/categories/:categoryId
-
 /**
- * @route   POST /api/v1/group-templates/:id/categories
+ * @route   POST /api/v1/group-templates/:groupId/categories
  * @desc    Add category to group template
  * @access  Private
  */
-
 router.post(
   "/:groupId/categories",
   authMiddleware,
@@ -101,11 +93,10 @@ router.post(
 );
 
 /**
- * @route   PUT /api/v1/group-templates/:id/categories
+ * @route   PUT /api/v1/group-templates/:groupId/categories
  * @desc    Update category in group template
  * @access  Private
  */
-
 router.put(
   "/:groupId/categories",
   authMiddleware,
@@ -122,11 +113,10 @@ router.put(
 );
 
 /**
- * @route   DELETE /api/v1/group-templates/:id/categories
+ * @route   DELETE /api/v1/group-templates/:groupId/categories
  * @desc    Delete category from group template
  * @access  Private
  */
-
 router.delete(
   "/:groupId/categories",
   authMiddleware,
@@ -141,17 +131,31 @@ router.delete(
   groupTemplateController.DeleteCategoryFromGroupTemplate
 );
 
-// Skills
-// POST /group-templates/:id/categories/:categoryId/skills
-// PUT /group-templates/:id/categories/:categoryId/skills/:skillId
-// DELETE /group-templates/:id/categories/:categoryId/skills/:skillId
-
 /**
- * @route   POST /api/v1/group-templates/:id/categories/:categoryId/skills
- * @desc    Add skill to category in group template
+ * @route   GET /api/v1/group-templates/:groupId/categories/skills
+ * @desc    Get skill to category in group template
  * @access  Private
  */
 
+router.get(
+  "/:groupId/categories/skills",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    query("groupTemplateId")
+      .isInt()
+      .withMessage("Group Template ID must be an integer"),
+    query("categoryId").isInt().withMessage("Category ID must be an integer"),
+  ],
+  groupTemplateController.GetSkillsInCategoryInGroupTemplate
+);
+
+/**
+ * @route   POST /api/v1/group-templates/:groupId/categories/skills
+ * @desc    Add skill to category in group template
+ * @access  Private
+ */
 router.post(
   "/:groupId/categories/skills",
   authMiddleware,
@@ -168,11 +172,10 @@ router.post(
 );
 
 /**
- * @route   PUT /api/v1/group-templates/:id/categories/skills
+ * @route   PUT /api/v1/group-templates/:groupId/categories/skills
  * @desc    Update skill in category in group template
  * @access  Private
  */
-
 router.put(
   "/:groupId/categories/skills",
   authMiddleware,
@@ -190,11 +193,10 @@ router.put(
 );
 
 /**
- * @route   DELETE /api/v1/group-templates/:id/categories/:categoryId/skills/:skillId
+ * @route   DELETE /api/v1/group-templates/:groupId/categories/skills
  * @desc    Delete skill from category in group template
  * @access  Private
  */
-
 router.delete(
   "/:groupId/categories/skills",
   authMiddleware,
@@ -210,17 +212,33 @@ router.delete(
   groupTemplateController.DeleteSkillFromCategoryInGroupTemplate
 );
 
-// Metrics
-// POST /group-templates/:id/categories/:categoryId/skills/:skillId/metrics
-// PUT /group-templates/:id/categories/:categoryId/skills/:skillId/metrics/:metricId
-// DELETE /group-templates/:id/categories/:categoryId/skills/:skillId/metrics/:metricId
-
 /**
- * @route   POST /api/v1/group-templates/:id/categories/skills/metrics
- * @desc    Add metric to skill in category in group template
+ * @route   GET /api/v1/group-templates/:groupId/categories/skills/metrics
+ * @desc    Get metrics to skill in category in group template
  * @access  Private
  */
 
+router.post(
+  "/:groupId/categories/skills/metrics",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    query("groupTemplateId")
+      .isInt()
+      .withMessage("Group Template ID must be an integer"),
+    query("categoryId").isInt().withMessage("Category ID must be an integer"),
+    query("skillId").isInt().withMessage("Skill ID must be an integer"),
+    // body("name").notEmpty().withMessage("Metric name is required"),
+  ],
+  groupTemplateController.getAllMetrics
+);
+
+/**
+ * @route   POST /api/v1/group-templates/:groupId/categories/skills/metrics
+ * @desc    Add metric to skill in category in group template
+ * @access  Private
+ */
 router.post(
   "/:groupId/categories/skills/metrics",
   authMiddleware,
@@ -238,11 +256,10 @@ router.post(
 );
 
 /**
- * @route   PUT /api/v1/group-templates/:id/categories/:categoryId/skills/:skillId/metrics/:metricId
+ * @route   PUT /api/v1/group-templates/:groupId/categories/skills/metrics
  * @desc    Update metric in skill in category in group template
  * @access  Private
  */
-
 router.put(
   "/:groupId/categories/skills/metrics",
   authMiddleware,
@@ -260,11 +277,10 @@ router.put(
 );
 
 /**
- * @route   DELETE /api/v1/group-templates/:id/categories/:categoryId/skills/:skillId/metrics/:metricId
+ * @route   DELETE /api/v1/group-templates/:groupId/categories/skills/metrics
  * @desc    Delete metric from skill in category in group template
  * @access  Private
  */
-
 router.delete(
   "/:groupId/categories/skills/metrics",
   authMiddleware,
@@ -279,6 +295,22 @@ router.delete(
     query("metricId").isInt().withMessage("Metric ID must be an integer"),
   ],
   groupTemplateController.DeleteMetricFromSkillInCategoryInGroupTemplate
+);
+
+
+// Get group template categories for an event via group id
+
+router.get(
+  "/:groupId/categories",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    query("groupTemplateId")
+      .isInt()
+      .withMessage("Group Template ID must be an integer"),
+  ],
+  groupTemplateController.GetGroupTemplateCategories
 );
 
 export default router;

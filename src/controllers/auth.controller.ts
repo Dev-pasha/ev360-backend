@@ -3,6 +3,7 @@ import { AuthService } from "../services/auth.service";
 import { validationResult } from "express-validator";
 import { successResponse, errorResponse } from "../utils/response";
 import logger from "../config/logger";
+import cookieParser from 'cookie-parser';
 
 export class AuthController {
   private authService: AuthService;
@@ -69,7 +70,16 @@ export class AuthController {
 
       const result = await this.authService.login(user);
 
-      res.json(successResponse(result));
+      // Set cookies
+      res.cookie('accessToken', result.accessToken, result.cookies.accessToken);
+      res.cookie('refreshToken', result.refreshToken, result.cookies.refreshToken);
+
+      // Return tokens in response as well for clients that don't use cookies
+      res.status(200).json({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: result.user
+      });
     } catch (error) {
       logger.error("Error in login: ", error);
       res.status(500).json(errorResponse("Login failed", 500, error));
@@ -78,14 +88,22 @@ export class AuthController {
 
   Logout = async (req: Request, res: Response): Promise<void> => {
     try {
-      if (!req.user) {
-        res.status(401).json(errorResponse("Unauthorized", 401));
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        res.status(401).json({ message: 'Not authenticated' });
         return;
       }
-
-      await this.authService.logout(req.user.id);
-
-      res.json(successResponse("Logged out successfully"));
+      
+      const authService = new AuthService();
+      await authService.logout(userId);
+      
+      // Clear cookies
+      const logoutCookies = authService.getLogoutCookies();
+      res.cookie('accessToken', '', logoutCookies.accessToken);
+      res.cookie('refreshToken', '', logoutCookies.refreshToken);
+      
+      res.status(200).json({ message: 'Logged out successfully' });
     } catch (error) {
       logger.error("Error in logout: ", error);
       res.status(500).json(errorResponse("Logout failed", 500, error));
@@ -94,32 +112,26 @@ export class AuthController {
 
   RefreshToken = async (req: Request, res: Response): Promise<void> => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        res
-          .status(400)
-          .json(errorResponse("Refresh token failed", 400, errors));
-        return;
-      }
-
-      const { refreshToken } = req.body;
-
-      console.log("Refresh token: ", refreshToken);
-
+      // Get token from cookie or request body
+      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+      
       if (!refreshToken) {
-        res.status(400).json({ message: "Refresh token is required" });
+        res.status(400).json({ message: 'Refresh token required' });
         return;
       }
-
-      // Generate new tokens
-      const tokens = await this.authService.refreshToken(refreshToken);
-
-      if (!tokens) {
-        res.status(401).json(errorResponse("Invalid refresh token", 401));
-        return;
-      }
-
-      res.json(successResponse(tokens));
+      
+      const authService = new AuthService();
+      const result = await authService.refreshToken(refreshToken);
+      
+      // Set cookies
+      res.cookie('accessToken', result.accessToken, result.cookies.accessToken);
+      res.cookie('refreshToken', result.refreshToken, result.cookies.refreshToken);
+      
+      // Return tokens in response as well
+      res.status(200).json({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken
+      });
     } catch (error) {
       logger.error("Error in refresh token: ", error);
       res.status(500).json(errorResponse("Refresh token failed", 500, error));

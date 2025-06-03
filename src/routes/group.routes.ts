@@ -18,16 +18,14 @@ router.post(
   "/",
   [body("name").notEmpty().withMessage("Group name is required")],
   authMiddleware,
-  requirePermission("create_groups") as RequestHandler,
-  canCreateGroupMiddleware,
-  [
-    body("name").notEmpty().withMessage("Group name is required"),
-  ],
+  // requirePermission("create_groups") as RequestHandler,
+  // canCreateGroupMiddleware,
+  [body("name").notEmpty().withMessage("Group name is required")],
   authController.CreateGroup
 );
 
 /**
- * @route   GET /api/v1/user/groups
+ * @route   GET /api/v1/group/user
  * @desc    Get user's groups
  * @access  Private
  */
@@ -53,14 +51,14 @@ router.put(
 // Add user to group
 
 /**
- * @route   POST /api/v1/group/:id/user
+ * @route   POST /api/v1/group/:id/user/invite
  * @desc    Add user to group
  * @access  Private
  *
  */
 
 router.post(
-  "/:groupId/user",
+  "/:groupId/user/invite",
   authMiddleware,
   [
     requirePermission("invite_users") as RequestHandler,
@@ -168,11 +166,10 @@ router.get(
 // );
 
 /**
- * @route   PUT /api/v1/group/delete
+ * @route   Delete /api/v1/group/delete
  * @desc    Change user role in group
  * @access  Private
  */
-
 
 router.delete(
   "/delete",
@@ -180,11 +177,10 @@ router.delete(
   [
     // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
-    query('groupId').isInt().withMessage("Group ID must be an integer"),
+    query("groupId").isInt().withMessage("Group ID must be an integer"),
   ],
   authController.DeleteGroup
 );
-
 
 // change the user role in group
 
@@ -206,5 +202,32 @@ router.put(
   authController.ChangeUserRoleInGroup
 );
 
+/**
+ * @route   POST /api/v1/group/:id/complete-registration
+ * @desc    Complete registration
+ * @access  Private
+ */
+
+router.post(
+  "/:token/complete-registration",
+  authController.CompleteRegistration
+);
+
+/**
+ * @route   GET /api/v1/group/:id/coaches
+ * @desc   Get group coaches
+ * @access  Private
+ *
+ */
+
+router.get(
+  "/:groupId/coaches",
+  authMiddleware,
+  [
+    requirePermission("view_coaches") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+  ],
+  authController.GetGroupCoaches
+);
 
 export default router;

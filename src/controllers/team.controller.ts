@@ -26,8 +26,6 @@ export class TeamController {
       const { groupId } = req.params;
       const { teamData } = req.body;
 
-
-
       const newTeam = await this.teamService.createTeam(+groupId, teamData);
 
       res.status(201).json(
@@ -42,13 +40,6 @@ export class TeamController {
     }
   };
 
-  /**
-   * Get teams - handles multiple cases:
-   * - Get all teams for a group
-   * - Get single team by ID
-   * - Get teams with player count
-   * - Get team with full player details
-   */
   getTeams = async (req: Request, res: Response): Promise<void> => {
     try {
       const errors = validationResult(req);
@@ -256,4 +247,66 @@ export class TeamController {
         .json(errorResponse("Team players fetching failed", 400, error));
     }
   };
+
+  getAvailablePlayers = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res
+          .status(400)
+          .json(errorResponse("Available players fetch failed", 400, errors));
+        return;
+      }
+
+      const { groupId } = req.params;
+
+      const availablePlayers =
+        await this.teamService.getUnassignedPlayers(+groupId);
+
+      res.status(200).json(
+        successResponse({
+          message: "Available players fetched successfully",
+          players: availablePlayers,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in available players fetching: ", error);
+      res
+        .status(400)
+        .json(errorResponse("Available players fetching failed", 400, error));
+    }
+  };
+
+
+  exportTeam = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res
+          .status(400)
+          .json(errorResponse("Team export failed", 400, errors));
+        return;
+      }
+
+      const { groupId, teamId } = req.params;
+      const { format } = req.query;
+
+      const exportData = await this.teamService.exportTeamData(
+        +groupId,
+        +teamId,
+        format
+      );
+
+      res.status(200).json(
+        successResponse({
+          message: "Team exported successfully",
+          data: exportData,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in team export: ", error);
+      res.status(400).json(errorResponse("Team export failed", 400, error));
+    }
+  };
+
 }

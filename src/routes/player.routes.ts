@@ -18,7 +18,7 @@ router.post(
   "/:groupId",
   authMiddleware,
   requirePermission("create_players") as RequestHandler,
-  canAddPlayerToGroupMiddleware,
+  // canAddPlayerToGroupMiddleware,
   [
     param("groupId")
       .notEmpty()
@@ -120,25 +120,21 @@ router.get(
 );
 
 /**
- * @route   POST /api/v1/player-group/:groupId/create-account
+ * @route   POST /api/v1/player-group/create-account
  * @desc    Assign player to a group
  * @access  Private
  *
  */
 
 router.post(
-  "/:groupId/create-account",
-  authMiddleware,
-  requirePermission("create_players") as RequestHandler,
+  "/create-account/:token",
   [
-    param("groupId")
-      .notEmpty()
-      .isInt()
-      .withMessage("Group ID must be an integer"),
-    query("token").notEmpty().withMessage("Token is required"),
+    param("token").notEmpty().withMessage("Token is required"),
     body("password").notEmpty(),
   ],
   playerController.CreatePlayerAccount
 );
+
+
 
 export default router;

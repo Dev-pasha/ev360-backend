@@ -177,4 +177,40 @@ router.get(
   teamController.getTeamPlayers
 );
 
+
+/**
+ * @route   GET /api/v1/team/:groupId/available-players
+ * @desc    Get available players for a group
+ * @access  Private
+ */
+router.get(
+  "/:groupId/available-players",
+  authMiddleware,
+  requirePermission("view_teams") as RequestHandler,
+  [
+    param("groupId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
+  ],
+  teamController.getAvailablePlayers
+);
+
+/**
+ * @route   GET /api/v1/team/:groupId/:teamId/export
+ * @desc    Export team data
+ */
+router.get(
+  "/:groupId/:teamId/export",
+  authMiddleware,
+  requirePermission("view_teams") as RequestHandler,
+  [
+    param("groupId").notEmpty().isInt(),
+    param("teamId").notEmpty().isInt(),
+    query("format").isIn(["csv", "excel"]).withMessage("Format must be csv or excel"),
+  ],
+  teamController.exportTeam  // <- Need to implement this method
+);
+
+
 export default router;

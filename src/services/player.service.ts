@@ -18,6 +18,7 @@ import bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
 import authConfig from "../config/auth";
 import { PlayerList } from "../entities/player-list.entity";
+import { EmailService } from "./email.service";
 
 interface TokenPayload {
   playerId: number;
@@ -65,6 +66,7 @@ export class PlayerService {
   private teamPlayerRepository;
   private playerListRepository;
   private userRepository;
+  private emailService: EmailService;
 
   constructor(private dataSource: DataSource = AppDataSource) {
     this.groupRepository = this.dataSource.getRepository(Group);
@@ -78,151 +80,494 @@ export class PlayerService {
     this.teamPlayerRepository = this.dataSource.getRepository(TeamPlayer);
     this.userRepository = this.dataSource.getRepository(User);
     this.playerListRepository = this.dataSource.getRepository(PlayerList);
+    this.emailService = new EmailService();
   }
 
+  // async createPlayer(
+  //   groupId: number,
+  //   playerData: {
+  //     first_name: string;
+  //     last_name: string;
+  //     number?: number;
+  //     jersey_colour?: JerseyColor;
+  //     date_of_birth?: string;
+  //     gender?: Gender;
+  //     groupId: number;
+  //     headshot?: string;
+  //     primary_position?: number;
+  //     secondary_position?: number;
+  //     height?: number;
+  //     weight?: number;
+  //     hand?: Hand;
+  //     email?: string;
+  //     secondary_email?: string;
+  //     foot?: Foot;
+  //     level?: string;
+  //     zone?: string;
+  //     categories?: any[];
+  //     team_id?: number;
+  //     check_in?: boolean;
+  //     archived?: boolean;
+  //     custom_field_1?: string;
+  //     custom_field_2?: string;
+  //     custom_field_3?: string;
+  //     custom_field_4?: string;
+  //     playerList?: number[];
+  //   }
+  // ): Promise<Player> {
+
+  //   console.log("Creating player with data: ", playerData);
+
+  //   // Verify group exists
+  //   const group = await this.groupRepository.findOne({
+  //     where: { id: groupId },
+  //   });
+
+  //   if (!group) {
+  //     throw new Error("Group not found");
+  //   }
+
+  //   // player already exists
+  //   const existingPlayer = await this.playerRepository.findOne({
+  //     where: {
+  //       email: playerData.email,
+  //       group: { id: groupId },
+  //     },
+  //   });
+
+  //   if (existingPlayer) {
+  //     throw new Error("Player already exists");
+  //   }
+
+  //   console.log('"Player Data: ", playerData);', playerData);
+
+  //   const PrimaryPostion = await this.positionRepository.findOne({
+  //     where: {
+  //       id: playerData.primary_position,
+  //       group: { id: groupId },
+  //     },
+  //   });
+
+  //   console.log("Primary Position: ", PrimaryPostion);
+
+  //   console.log("categories: ", playerData.categories);
+
+  //   const player = this.playerRepository.create({
+  //     first_name: playerData.first_name,
+  //     last_name: playerData.last_name,
+  //     number: playerData.number,
+  //     jersey_colour: playerData.jersey_colour,
+  //     date_of_birth: playerData.date_of_birth
+  //       ? new Date(playerData.date_of_birth)
+  //       : undefined,
+  //     gender: playerData.gender,
+  //     headshot: playerData.headshot,
+  //     primary_position: PrimaryPostion,
+  //     secondary_position: playerData.secondary_position
+  //       ? await this.positionRepository.findOne({
+  //           where: { id: playerData.secondary_position },
+  //         })
+  //       : undefined,
+  //     height: playerData.height,
+  //     weight: playerData.weight,
+  //     hand: playerData.hand,
+  //     email: playerData.email,
+  //     secondary_email: playerData.secondary_email,
+  //     foot: playerData.foot,
+  //     level: playerData.level,
+  //     zone: playerData.zone,
+  //     custom_field_1: playerData.custom_field_1,
+  //     custom_field_2: playerData.custom_field_2,
+  //     custom_field_3: playerData.custom_field_3,
+  //     custom_field_4: playerData.custom_field_4,
+  //     check_in: playerData.check_in,
+  //     archived: playerData.archived,
+  //     group: group,
+  //     team: playerData.team_id
+  //       ? await this.teamRepository.findOne({
+  //           where: { id: playerData.team_id },
+  //         })
+  //       : undefined,
+  //   } as Player);
+
+  //   if (playerData.playerList && playerData.playerList.length > 0) {
+  //     // Fetch the player lists by their IDs
+  //     const playerLists = await this.playerListRepository.findBy({
+  //       id: In(playerData.playerList),
+  //       group: { id: groupId },
+  //     });
+
+  //     // Check if all player lists were found
+  //     if (playerLists.length !== playerData.playerList.length) {
+  //       throw new Error("One or more player lists not found");
+  //     }
+
+  //     // Assign the player lists to the player
+  //     player.player_lists = playerLists;
+  //   }
+
+  //   if (playerData.categories && playerData.categories.length > 0) {
+  //     // Assign the categories to the player
+  //     player.categories = playerData.categories;
+  //   }
+
+  //   // send email to player for login with the token containing the player id and group id
+  //   const payload = {
+  //     playerId: player.id,
+  //     email: player.email,
+  //     groupId: groupId,
+  //     type: "player-login",
+  //   };
+
+  //   const token = jwt.sign(payload, authConfig.jwtSecret, {
+  //     expiresIn: Number(authConfig.jwtExpiresIn) || "5h",
+  //   });
+
+  //   // send email to player with the token
+
+  //   await this.emailService.sendEmail({
+  //     to: player.email,
+  //     from: "abdullahkhalid1398@gmail.com",
+  //     replyTo: "abdullahkhalid1398@gmail.com",
+  //     subject: "Invitation to join group",
+  //     html: `
+  //           <p>You have been invited to join a group as a Player.</p>
+  //           <p>Group: ${group.name}</p>
+  //           <p>Please click the following link to complete your registration:</p>
+  //           <p><a href="http://localhost:3000/verify-email-player/${token}">Verify Email</a></p>
+  //         `,
+  //   });
+
+  //   // Save the player
+  //   await this.playerRepository.save(player);
+  //   return player;
+  // }
+
+  
   async createPlayer(
-    groupId: number,
-    playerData: {
-      first_name: string;
-      last_name: string;
-      number?: number;
-      jersey_colour?: JerseyColor;
-      date_of_birth?: string;
-      gender?: Gender;
-      groupId: number;
-      headshot?: string;
-      primary_position?: number;
-      secondary_position?: number;
-      height?: number;
-      weight?: number;
-      hand?: Hand;
-      email?: string;
-      secondary_email?: string;
-      foot?: Foot;
-      level?: string;
-      zone?: string;
-      categories?: any[];
-      team_id?: number;
-      check_in?: boolean;
-      archived?: boolean;
-      custom_field_1?: string;
-      custom_field_2?: string;
-      custom_field_3?: string;
-      custom_field_4?: string;
-      playerList?: number[];
-    }
-  ): Promise<Player> {
-    // Verify group exists
-    const group = await this.groupRepository.findOne({
-      where: { id: groupId },
-    });
+  groupId: number,
+  playerData: {
+    first_name: string;
+    last_name: string;
+    number?: number;
+    jersey_colour?: JerseyColor;
+    date_of_birth?: string;
+    gender?: Gender;
+    groupId: number;
+    headshot?: string;
+    primary_position_id?: number;
+    secondary_position_id?: number;
+    height?: number;
+    weight?: number;
+    hand?: Hand;
+    email?: string;
+    secondary_email?: string;
+    foot?: Foot;
+    level?: string;
+    zone?: string;
+    categories?: any[];
+    team_id?: number;
+    check_in?: boolean;
+    archived?: boolean;
+    custom_field_1?: string;
+    custom_field_2?: string;
+    custom_field_3?: string;
+    custom_field_4?: string;
+    playerList?: number[];
+    user_id?: number;
+  }
+): Promise<Player> {
+  console.log("=== CREATE PLAYER FUNCTION START ===");
+  console.log("GroupId parameter:", groupId);
+  console.log("PlayerData received:", playerData);
+  // console.log("PlayerData received:", JSON.stringify(playerData, null, 2));
+  
+  // Validate required fields
+  if (!playerData.email) {
+    console.log("ERROR: No email provided");
+    throw new Error("Email is required");
+  }
 
-    if (!group) {
-      throw new Error("Group not found");
-    }
+  console.log("Email to check:", playerData.email);
+  console.log("Email type:", typeof playerData.email);
+  console.log("Email trimmed:", playerData.email.trim());
 
-    // player already exists
-    const existingPlayer = await this.playerRepository.findOne({
-      where: {
-        email: playerData.email,
-        group: { id: groupId },
-      },
-    });
+  // Use transaction for data consistency
+  return await this.playerRepository.manager.transaction(async (transactionalEntityManager) => {
+    console.log("=== TRANSACTION STARTED ===");
+    
+    try {
+      // Get repositories within the transaction
+      const groupRepo = transactionalEntityManager.getRepository(Group);
+      const playerRepo = transactionalEntityManager.getRepository(Player);
+      const positionRepo = transactionalEntityManager.getRepository(Position);
+      const teamRepo = transactionalEntityManager.getRepository(Team);
+      const playerListRepo = transactionalEntityManager.getRepository(PlayerList);
 
-    if (existingPlayer) {
-      throw new Error("Player already exists");
-    }
-
-    console.log('"Player Data: ", playerData);', playerData);
-
-    const PrimaryPostion = await this.positionRepository.findOne({
-      where: {
-        id: playerData.primary_position,
-        group: { id: groupId },
-      },
-    });
-
-    console.log("Primary Position: ", PrimaryPostion);
-
-    console.log("categories: ", playerData.categories);
-
-    const player = this.playerRepository.create({
-      first_name: playerData.first_name,
-      last_name: playerData.last_name,
-      number: playerData.number,
-      jersey_colour: playerData.jersey_colour,
-      date_of_birth: playerData.date_of_birth
-        ? new Date(playerData.date_of_birth)
-        : undefined,
-      gender: playerData.gender,
-      headshot: playerData.headshot,
-      primary_position: PrimaryPostion,
-      secondary_position: playerData.secondary_position
-        ? await this.positionRepository.findOne({
-            where: { id: playerData.secondary_position },
-          })
-        : undefined,
-      height: playerData.height,
-      weight: playerData.weight,
-      hand: playerData.hand,
-      email: playerData.email,
-      secondary_email: playerData.secondary_email,
-      foot: playerData.foot,
-      level: playerData.level,
-      zone: playerData.zone,
-      custom_field_1: playerData.custom_field_1,
-      custom_field_2: playerData.custom_field_2,
-      custom_field_3: playerData.custom_field_3,
-      custom_field_4: playerData.custom_field_4,
-      check_in: playerData.check_in,
-      archived: playerData.archived,
-      group: group,
-      team: playerData.team_id
-        ? await this.teamRepository.findOne({
-            where: { id: playerData.team_id },
-          })
-        : undefined,
-    } as Player);
-
-    if (playerData.playerList && playerData.playerList.length > 0) {
-      // Fetch the player lists by their IDs
-      const playerLists = await this.playerListRepository.findBy({
-        id: In(playerData.playerList),
-        group: { id: groupId },
+      // Verify group exists
+      console.log("=== CHECKING GROUP EXISTS ===");
+      const group = await groupRepo.findOne({
+        where: { id: groupId },
       });
-
-      // Check if all player lists were found
-      if (playerLists.length !== playerData.playerList.length) {
-        throw new Error("One or more player lists not found");
+        
+        console.log("=== VALIDATING PRIMARY POSITION ===")
+        console.log("Group found:", group ? `Yes - ID: ${group.id}, Name: ${group.name}` : "No");
+      
+      if (!group) {
+        console.log("ERROR: Group not found with ID:", groupId);
+        throw new Error("Group not found");
       }
 
-      // Assign the player lists to the player
-      player.player_lists = playerLists;
+      // Check if player already exists - check by email globally first, then by group
+      console.log("=== CHECKING FOR EXISTING PLAYER ===");
+      console.log("Searching for email:", playerData.email);
+      
+      // First check if email exists globally
+      const globalExistingPlayer = await playerRepo.findOne({
+        where: {
+          email: playerData.email!.trim().toLowerCase(),
+        },
+        relations: ["group"]
+      });
+
+      if (globalExistingPlayer) {
+        console.log("=== PLAYER WITH THIS EMAIL EXISTS GLOBALLY ===");
+        console.log("Player ID:", globalExistingPlayer.id);
+        console.log("Player Name:", globalExistingPlayer.first_name, globalExistingPlayer.last_name);
+        console.log("Player Email:", globalExistingPlayer.email);
+        console.log("Player Group ID:", globalExistingPlayer.group?.id);
+        console.log("Player Group Name:", globalExistingPlayer.group?.name);
+        console.log("Player Created At:", globalExistingPlayer.created_at);
+        
+        if (globalExistingPlayer.group?.id === groupId) {
+          throw new Error(`Player with email ${playerData.email} already exists in group "${globalExistingPlayer.group.name}" (Player ID: ${globalExistingPlayer.id})`);
+        } else {
+          throw new Error(`Player with email ${playerData.email} already exists in a different group "${globalExistingPlayer.group?.name}" (Player ID: ${globalExistingPlayer.id}). Use a different email address.`);
+        }
+      }
+
+      console.log("No existing player found with this email");
+
+      console.log("=== VALIDATING JERSEY NUMBER UNIQUENESS ===");
+      if (playerData.number) {
+        console.log("Checking jersey number:", playerData.number);
+        const existingPlayerWithNumber = await playerRepo.findOne({
+          where: {
+            number: playerData.number,
+            group: { id: groupId },
+          },
+        });
+        
+        if (existingPlayerWithNumber) {
+          console.log("ERROR: Jersey number already taken");
+          throw new Error(`Jersey number ${playerData.number} is already taken by another player in this group`);
+        }
+      }
+      let primaryPosition = null;
+      if (playerData.primary_position_id) {
+        console.log("Looking for primary position ID:", playerData.primary_position_id);
+        primaryPosition = await positionRepo.findOne({
+          where: {
+            id: playerData.primary_position_id,
+            group: { id: groupId },
+          },
+        });
+        console.log("Primary position found:", primaryPosition ? `Yes - ${primaryPosition.name}` : "No");
+        
+        if (!primaryPosition) {
+          console.log("ERROR: Primary position not found or doesn't belong to group");
+          throw new Error(`Primary position with ID ${playerData.primary_position_id} not found in group ${groupId}`);
+        }
+      }
+
+      console.log("=== VALIDATING SECONDARY POSITION ===");
+      let secondaryPosition = null;
+      if (playerData.secondary_position_id) {
+        console.log("Looking for secondary position ID:", playerData.secondary_position_id);
+        
+        secondaryPosition = await positionRepo.findOne({
+          where: { 
+            id: playerData.secondary_position_id,
+            group: { id: groupId }
+          },
+        });
+        console.log("Secondary position found:", secondaryPosition ? `Yes - ${secondaryPosition.name}` : "No");
+        
+        if (!secondaryPosition) {
+          console.log("ERROR: Secondary position not found or doesn't belong to group");
+          throw new Error(`Secondary position with ID ${playerData.secondary_position_id} not found in group ${groupId}`);
+        }
+      }
+
+      console.log("=== VALIDATING TEAM ===");
+      let team = null;
+      if (playerData.team_id) {
+        console.log("Looking for team ID:", playerData.team_id);
+        team = await teamRepo.findOne({
+          where: { 
+            id: playerData.team_id,
+            group: { id: groupId }
+          },
+        });
+        console.log("Team found:", team ? `Yes - ${team.name}` : "No");
+        
+        if (!team) {
+          console.log("ERROR: Team not found or doesn't belong to group");
+          throw new Error(`Team with ID ${playerData.team_id} not found in group ${groupId}`);
+        }
+      }
+
+      console.log("=== VALIDATING USER ===");
+      let user = null;
+      if (playerData.user_id) {
+        console.log("Looking for user ID:", playerData.user_id);
+        user = await transactionalEntityManager.findOne(User, {
+          where: { 
+            id: playerData.user_id
+          },
+        });
+        console.log("User found:", user ? `Yes - ${user.email || user.id}` : "No");
+        
+        if (!user) {
+          console.log("ERROR: User not found");
+          throw new Error(`User with ID ${playerData.user_id} not found`);
+        }
+      }
+
+      console.log("=== VALIDATING PLAYER LISTS ===");
+      let playerLists:any = [];
+      if (playerData.playerList && playerData.playerList.length > 0) {
+        console.log("Player list IDs:", playerData.playerList);
+        
+        playerLists = await playerListRepo.findBy({
+          id: In(playerData.playerList),
+          group: { id: groupId },
+        });
+
+        console.log("Player lists found:", playerLists.length, "out of", playerData.playerList.length);
+        
+        if (playerLists.length !== playerData.playerList.length) {
+          console.log("ERROR: Not all player lists found");
+          const foundIds = playerLists.map((pl: { id: any; }) => pl.id);
+          const missingIds = playerData.playerList.filter(id => !foundIds.includes(id));
+          throw new Error(`Player lists not found with IDs: ${missingIds.join(', ')}`);
+        }
+      }
+
+      console.log("=== CREATING PLAYER OBJECT ===");
+      const player = playerRepo.create({
+        first_name: playerData.first_name,
+        last_name: playerData.last_name,
+        number: playerData.number,
+        jersey_colour: playerData.jersey_colour,
+        date_of_birth: playerData.date_of_birth
+          ? new Date(playerData.date_of_birth)
+          : undefined,
+        gender: playerData.gender,
+        headshot: playerData.headshot,
+        primary_position: primaryPosition,
+        secondary_position: secondaryPosition,
+        height: playerData.height,
+        weight: playerData.weight,
+        hand: playerData.hand,
+        email: playerData.email!.trim().toLowerCase(),
+        secondary_email: playerData.secondary_email,
+        foot: playerData.foot,
+        level: playerData.level,
+        zone: playerData.zone,
+        custom_field_1: playerData.custom_field_1,
+        custom_field_2: playerData.custom_field_2,
+        custom_field_3: playerData.custom_field_3,
+        custom_field_4: playerData.custom_field_4,
+        check_in: playerData.check_in,
+        archived: playerData.archived,
+        group: group,
+        team: team,
+      } as Player);
+
+      // Assign player lists if any
+      if (playerLists.length > 0) {
+        console.log("Assigning player lists to player");
+        player.player_lists = playerLists;
+      }
+
+      // Handle categories
+      if (playerData.categories && playerData.categories.length > 0) {
+        console.log("=== PROCESSING CATEGORIES ===");
+        console.log("Categories:", playerData.categories);
+        player.categories = playerData.categories;
+      }
+
+      console.log("Player object created (before save):", {
+        first_name: player.first_name,
+        last_name: player.last_name,
+        email: player.email,
+        group_id: player.group?.id
+      });
+
+      console.log("=== SAVING PLAYER TO DATABASE ===");
+      const savedPlayer = await playerRepo.save(player);
+      console.log("Player saved with ID:", savedPlayer.id);
+
+      console.log("=== TRANSACTION COMMITTED ===");
+      
+      // Generate token after successful transaction
+      console.log("=== GENERATING JWT TOKEN ===");
+      const payload = {
+        playerId: savedPlayer.id,
+        email: savedPlayer.email,
+        groupId: groupId,
+        type: "player-login",
+      };
+
+      const token = jwt.sign(payload, authConfig.jwtSecret, {
+        expiresIn: Number(authConfig.jwtExpiresIn) || "5h",
+      });
+
+      console.log("Token generated for player ID:", savedPlayer.id);
+
+      // Send email after transaction (non-blocking)
+      console.log("=== SENDING EMAIL ===");
+      setImmediate(async () => {
+        try {
+          await this.emailService.sendEmail({
+            to: savedPlayer.email,
+            from: "abdullahkhalid1398@gmail.com",
+            replyTo: "abdullahkhalid1398@gmail.com",
+            subject: "Invitation to join group",
+            html: `
+              <p>You have been invited to join a group as a Player.</p>
+              <p>Group: ${group.name}</p>
+              <p>Please click the following link to complete your registration:</p>
+              <p><a href="http://localhost:3000/verify-email-player/${token}">Verify Email</a></p>
+            `,
+          });
+          console.log("Email sent successfully to:", savedPlayer.email);
+        } catch (emailError) {
+          console.log("ERROR: Failed to send email:", emailError);
+          // Log error but don't affect the response since player is already created
+        }
+      });
+
+      console.log("=== CREATE PLAYER FUNCTION END ===");
+      console.log("Final player:", {
+        id: savedPlayer.id,
+        name: `${savedPlayer.first_name} ${savedPlayer.last_name}`,
+        email: savedPlayer.email,
+        group: group.name
+      });
+
+      return savedPlayer;
+
+    } catch (error) {
+      console.log("=== ERROR IN TRANSACTION - ROLLING BACK ===");
+     
+      throw error; // This will trigger transaction rollback
     }
+  });
+}
 
-    if (playerData.categories && playerData.categories.length > 0) {
-      // Assign the categories to the player
-      player.categories = playerData.categories;
-    }
 
-    // send email to player for login with the token containing the player id and group id
-    const payload = {
-      playerId: player.id,
-      groupId: groupId,
-      type: "player-login",
-    };
-
-    const token = jwt.sign(payload, authConfig.jwtSecret, {
-      expiresIn: Number(authConfig.jwtExpiresIn) || "5h",
-    });
-
-    // send email to player with the token
-    // await this.emailService.sendPlayerLoginEmail(player.email, token);
-
-    // Save the player
-    await this.playerRepository.save(player);
-    return player;
-  }
 
   async getGroupPlayers(
     groupId: number,
@@ -723,4 +1068,18 @@ export class PlayerService {
       throw new Error(`Failed to create player account`);
     }
   }
+
+  async getPlayersByGroup(
+    groupId: number,
+  ): Promise<Player[]> {
+    try {
+      return await this.playerRepository.find({
+        where: { group: { id: groupId } },
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+
 }

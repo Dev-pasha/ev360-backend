@@ -44,7 +44,7 @@ export class ReportController {
       // Generate the report
       const report = await this.reportService.generateAllScoreReport(
         event_ids,
-        evaluator_ids
+        // evaluator_ids
       );
 
       // Return successful response
@@ -53,8 +53,8 @@ export class ReportController {
           {
             report,
             summary: {
-              event_count: event_ids.length,
-              evaluator_count: evaluator_ids.length,
+              event_count: event_ids.length || 0,
+              // evaluator_count: evaluator_ids.length || 0,
             },
           },
           "All score report generated successfully"
@@ -183,6 +183,101 @@ export class ReportController {
             "Failed to create individual report",
             500,
             error instanceof Error ? error.message : "Unknown error"
+          )
+        );
+    }
+  };
+
+  /**
+   * GET /api/reports/self-assessment/:eventId
+   * Get self-assessment player scores for a specific event
+   */
+  getSelfAssessmentReport = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res
+          .status(400)
+          .json(errorResponse("Validation failed", 400, errors.array()));
+        return;
+      }
+
+      const { eventId, groupId } = req.params;
+
+      const playerScores =
+        await this.reportService.getSelfAssessmentPlayerScores(Number(eventId));
+
+      res.status(200).json(
+        successResponse(
+          {
+            report: playerScores,
+            summary: {
+              total_players: playerScores.length,
+              total_scores: playerScores.reduce(
+                (sum, player) => sum + player.scores.length,
+                0
+              ),
+            },
+          },
+          "Self-assessment report generated successfully"
+        )
+      );
+    } catch (error) {
+      Logger.error("Error in generating self-assessment report: ", error);
+      res
+        .status(500)
+        .json(
+          errorResponse("Failed to generate self-assessment report", 500, error)
+        );
+    }
+  };
+
+  // * GET /api/reports/self-assessment/:eventId/players/:playerId
+  //  * Get detailed self-assessment data for a specific player in an event
+  //  */
+  getPlayerSelfAssessmentDetail = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res
+          .status(400)
+          .json(errorResponse("Validation failed", 400, errors.array()));
+        return;
+      }
+
+      const { eventId, playerId } = req.params;
+
+      const playerDetail =
+        await this.reportService.getPlayerSelfAssessmentDetail(
+          Number(eventId),
+          Number(playerId)
+        );
+
+      res
+        .status(200)
+        .json(
+          successResponse(
+            playerDetail,
+            "Player self-assessment detail retrieved successfully"
+          )
+        );
+    } catch (error) {
+      Logger.error("Error in fetching player self-assessment detail: ", error);
+      res
+        .status(500)
+        .json(
+          errorResponse(
+            "Failed to fetch player self-assessment detail",
+            500,
+            error
           )
         );
     }

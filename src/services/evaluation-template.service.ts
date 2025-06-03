@@ -12,13 +12,15 @@ export class EvaluationTemplateService {
 
   async getEvaluationTemplates(): Promise<EvaluationTemplate[]> {
     const templates = await this.evaluationTemplateRepository.find({
-      relations: [
-        "categories",
-        "categories.skills",
-        "categories.skills.metrics",
-        "custom_labels",
-      ],
+      // relations: [
+      //   // "categories",
+      //   // "categories.skills",
+      //   // "categories.skills.metrics",
+      //   // "custom_labels",
+      // ],
     });
+
+    console.log("Templates: ", templates.length);
     return templates;
   }
 

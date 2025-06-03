@@ -23,17 +23,16 @@ export class PlayerController {
       }
 
       const { groupId } = req.params;
-      const { playerData } = req.body;
 
-      const newPlayer = await this.playerService.createPlayer(
+      const _newPlayer = await this.playerService.createPlayer(
         +groupId,
-        playerData
+        req.body
       );
 
       res.status(201).json(
         successResponse({
           message: "Player created successfully",
-          newPlayer,
+          _newPlayer,
         })
       );
     } catch (error) {
@@ -61,6 +60,8 @@ export class PlayerController {
         search: search ? (search as string) : undefined,
         position: position ? (position as string) : undefined,
       });
+
+      // console.log("Players retrieved: ", players);
 
       res.status(200).json(
         successResponse({
@@ -179,7 +180,10 @@ export class PlayerController {
 
     try {
       const { password } = req.body;
-      const { token } = req.query;
+      const { token } = req.params;
+
+      console.log("CreatePlayerAccount - Params: ", req.params);
+      console.log("CreatePlayerAccount - Body: ", req.body);
 
       if (typeof token !== "string") {
         res.status(400).json(errorResponse("Invalid token provided", 400));
@@ -270,5 +274,4 @@ export class PlayerController {
   //       .json(errorResponse("Failed to remove players from team", 400, error));
   //   }
   // };
-
 }

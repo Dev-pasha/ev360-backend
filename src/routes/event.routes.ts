@@ -65,12 +65,12 @@ router.post(
 );
 
 /**
- * @route   PUT /api/v1/events/:eventId
+ * @route   PUT /api/v1/events/:groupId/:eventId
  * @desc    Update an event
  * @access  Private
  */
 router.put(
-  "/:eventId",
+  "/:groupId/:eventId",
   authMiddleware,
   requirePermission("update_events") as RequestHandler,
   [
@@ -107,16 +107,38 @@ router.put(
   eventController.updateEvent
 );
 
+
+
+router.get('/:groupId/all',
+  authMiddleware,
+  requirePermission("view_events") as RequestHandler,
+  [
+    param("groupId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
+  ],
+  eventController.getAllEvents
+);
+
+
+
+
 /**
- * @route   GET /api/v1/events/:eventId
+ * @route   GET /api/v1/events/:groupId/:eventId
  * @desc    Get event by ID
  * @access  Private
  */
+
 router.get(
-  "/:eventId",
+  "/:groupId/:eventId",
   authMiddleware,
   //   requirePermission("view_events") as RequestHandler,
   [
+    param("groupId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
     param("eventId")
       .notEmpty()
       .isInt()
@@ -131,7 +153,7 @@ router.get(
  * @access  Private
  */
 router.get(
-  "/group/:groupId",
+  "/:groupId",
   authMiddleware,
   requirePermission("view_events") as RequestHandler,
   [
@@ -139,25 +161,66 @@ router.get(
       .notEmpty()
       .isInt()
       .withMessage("Group ID must be an integer"),
-    query("active")
-      .optional()
-      .isBoolean()
-      .withMessage("Active must be a boolean"),
-    query("event_type")
-      .optional()
-      .isIn([EventType.STANDARD_EVALUATION, EventType.SELF_ASSESSMENT])
-      .withMessage("Invalid event type"),
-    query("team_id")
-      .optional()
-      .isInt()
-      .withMessage("Team ID must be an integer"),
-    query("start_date")
-      .optional()
-      .isISO8601()
-      .withMessage("Invalid start date"),
-    query("end_date").optional().isISO8601().withMessage("Invalid end date"),
+    // query("active")
+    //   .optional()
+    //   .isBoolean()
+    //   .withMessage("Active must be a boolean"),
+    // query("event_type")
+    //   .optional()
+    //   .isIn([EventType.STANDARD_EVALUATION, EventType.SELF_ASSESSMENT])
+    //   .withMessage("Invalid event type"),
+    // query("team_id")
+    //   .optional()
+    //   .isInt()
+    //   .withMessage("Team ID must be an integer"),
+    // query("start_date")
+    //   .optional()
+    //   .isISO8601()
+    //   .withMessage("Invalid start date"),
+    // query("end_date").optional().isISO8601().withMessage("Invalid end date"),
   ],
   eventController.getGroupEvents
+);
+
+/**
+ * @route   PUT /api/v1/events/:groupId/:eventId/check-in
+ * @desc    Check in a player for an event
+ * @access  Private
+ */
+
+router.put(
+  "/:groupId/:eventId/check-in/players",
+  authMiddleware,
+  requirePermission("check_in_players") as RequestHandler,
+  [
+    param("groupId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
+    param("eventId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Event ID must be an integer"),
+    body("playerId")
+      .custom((value) => {
+        // Normalize to array for easier validation
+        const ids = Array.isArray(value) ? value : [value];
+
+        if (ids.length === 0) {
+          throw new Error("At least one player ID is required");
+        }
+
+        if (!ids.every((id) => Number.isInteger(id) && id > 0)) {
+          throw new Error("All player IDs must be positive integers");
+        }
+
+        return true;
+      })
+      .withMessage(
+        "Player ID must be a positive integer or array of positive integers"
+      ),
+  ],
+  eventController.checkInPlayer
 );
 
 /**
@@ -259,15 +322,19 @@ router.put(
 );
 
 /**
- * @route   POST /api/v1/events/:eventId/evaluate
+ * @route   POST /api/v1/events/:eventId/groupId/evaluate
  * @desc    Submit evaluation
  * @access  Private
  */
 router.post(
-  "/:eventId/evaluate",
+  "/:eventId/:groupId/evaluate",
   authMiddleware,
   requirePermission("submit_evaluations") as RequestHandler,
   [
+    param("groupId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
     param("eventId")
       .notEmpty()
       .isInt()
@@ -286,14 +353,6 @@ router.post(
       .optional()
       .isNumeric()
       .withMessage("Score must be a number"),
-    body("evaluations.*.comment")
-      .optional()
-      .isString()
-      .withMessage("Comment must be a string"),
-    body("evaluations.*.choice_value")
-      .optional()
-      .isInt()
-      .withMessage("Choice value must be an integer"),
     body("evaluations.*.attempt_number")
       .optional()
       .isInt()
@@ -303,15 +362,19 @@ router.post(
 );
 
 /**
- * @route   GET /api/v1/events/:eventId/results
+ * @route   GET /api/v1/events/:eventId/:groupId/results
  * @desc    Get event results
  * @access  Private
  */
 router.get(
-  "/:eventId/results",
+  "/:eventId/:groupId/results",
   authMiddleware,
   requirePermission("view_evaluations") as RequestHandler,
   [
+    param("groupId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
     param("eventId")
       .notEmpty()
       .isInt()
@@ -351,12 +414,12 @@ router.delete(
 );
 
 /**
- * @route   PUT /api/v1/events/:eventId/lock
+ * @route   PUT /api/v1/events/:groupId/:eventId/lock
  * @desc    Lock/unlock event
  * @access  Private
  */
 router.put(
-  "/:eventId/lock",
+  "/:groupId/:eventId/lock",
   authMiddleware,
   requirePermission("manage_events") as RequestHandler,
   [

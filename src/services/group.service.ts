@@ -10,18 +10,21 @@ import { GroupTemplateService } from "./group-template.service";
 import authConfig from "../config/auth";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { EmailService } from "./email.service";
 
 export class GroupService {
   private userRepository;
   private roleRepository;
   private groupRepository;
   private userGroupRoleRepository;
+  private emailService: EmailService;
 
   constructor(private dataSource: DataSource = AppDataSource) {
     this.userRepository = this.dataSource.getRepository(User);
     this.groupRepository = this.dataSource.getRepository(Group);
     this.roleRepository = this.dataSource.getRepository(Role);
     this.userGroupRoleRepository = this.dataSource.getRepository(UserGroupRole);
+    this.emailService = new EmailService();
   }
 
   async createGroup(
@@ -175,122 +178,157 @@ export class GroupService {
   }
 
   async addUserToGroup(
-  groupId: number,
-  userData: { email: string; roleId: number }
-): Promise<{
-  user: { id: number; email: string };
-  isNewUser: boolean;
-  invitationToken?: string;
-  role: { id: number; name: string };
-  group: { id: number; name: string };
-}> {
-  try {
-    // Find group
-    const group = await this.groupRepository.findOne({
-      where: { id: groupId },
-    });
-    if (!group) {
-      Logger.error(`Add user to group error: Group not found (id: ${groupId})`);
-      throw new Error("Group not found");
-    }
+    groupId: number,
+    userData: { email: string; roleId: number }
+  ): Promise<{
+    user: { id: number; email: string };
+    isNewUser: boolean;
+    invitationToken?: string;
+    role: { id: number; name: string };
+    group: { id: number; name: string };
+  }> {
+    try {
+      console.log("Group ID: ", groupId);
+      console.log("User Data: ", userData);
 
-    // Find role
-    const role = await this.roleRepository.findOne({
-      where: { id: userData.roleId },
-    });
-    if (!role) {
-      Logger.error(`Add user to group error: Role not found (id: ${userData.roleId})`);
-      throw new Error("Role not found");
-    }
-
-    // Try to find existing user
-    let user = await this.userRepository.findOne({
-      where: { email: userData.email },
-    });
-    
-    let isNewUser = false;
-    let invitationToken: string | undefined;
-
-    if (!user) {
-      // Create a partial user account
-      isNewUser = true;
-      user = this.userRepository.create({
-        email: userData.email,
-        emailVerified: false,
-        // No password set - will be set when user completes registration
+      // Find group
+      const group = await this.groupRepository.findOne({
+        where: { id: groupId },
       });
 
-      user = await this.userRepository.save(user);
+      console.log("Group: ", group);
 
-      // Generate invitation token
-      invitationToken = jwt.sign(
-        {
-          sub: user.id,
-          email: user.email,
-          type: "invitation",
-          groupId,
-          roleId: role.id,
+      if (!group) {
+        Logger.error(
+          `Add user to group error: Group not found (id: ${groupId})`
+        );
+        throw new Error("Group not found");
+      }
+
+      // Find role
+      const role = await this.roleRepository.findOne({
+        where: { id: userData.roleId },
+      });
+
+      console.log("Role: ", role);
+
+      if (!role) {
+        Logger.error(
+          `Add user to group error: Role not found (id: ${userData.roleId})`
+        );
+        throw new Error("Role not found");
+      }
+
+      // Try to find existing user
+      let user = await this.userRepository.findOne({
+        where: { email: userData.email },
+      });
+
+      console.log("User: ", user);
+
+      let isNewUser = false;
+      let invitationToken: string | undefined;
+
+      // creates dummy password including name and random character
+      const randomChar = Math.random().toString(36).substring(2, 3);
+      const dummyPassword = `${userData.email.split("@")[0]}${randomChar}`;
+      const hashedPassword = await bcrypt.hash(dummyPassword, 10);
+
+      if (!user) {
+        // Create a partial user account
+        isNewUser = true;
+        user = this.userRepository.create({
+          email: userData.email,
+          emailVerified: false,
+          passwordHash: hashedPassword,
+          // No password set - will be set when user completes registration
+        });
+
+        user = await this.userRepository.save(user);
+
+        // Generate invitation token
+        invitationToken = jwt.sign(
+          {
+            sub: user.id,
+            email: user.email,
+            type: "invitation",
+            groupId,
+            roleId: role.id,
+          },
+          authConfig.jwtSecret,
+          { expiresIn: "7d" } // Token valid for 7 days
+        );
+
+        console.log("dummyPassword", dummyPassword);
+        // Send invitation email here
+        await this.emailService.sendEmail({
+          to: user.email,
+          from: "abdullahkhalid1398@gmail.com",
+          replyTo: "abdullahkhalid1398@gmail.com",
+          subject: "Invitation to join group",
+          html: `
+            <p>You have been invited to join a group.</p>
+            <p>Password: ${dummyPassword}</p>
+            <p>Role: ${role.name}</p>
+            <p>Group: ${group.name}</p>
+            <p>Please click the following link to complete your registration:</p>
+            <p><a href="http://localhost:3000/verify-email/${invitationToken}">Verify Email</a></p>
+          `,
+        });
+      }
+
+      // Check if user is already in the group
+      const existingUserGroupRole = await this.userGroupRoleRepository.findOne({
+        where: {
+          user: { id: user.id },
+          group: { id: groupId },
         },
-        authConfig.jwtSecret,
-        { expiresIn: "7d" } // Token valid for 7 days
-      );
-
-      // Send invitation email here
-      // await this.emailService.sendInvitationEmail(user.email, invitationToken);
-    }
-
-    // Check if user is already in the group
-    const existingUserGroupRole = await this.userGroupRoleRepository.findOne({
-      where: {
-        user: { id: user.id },
-        group: { id: groupId },
-      },
-    });
-
-    if (existingUserGroupRole) {
-      // Update role if user already in group
-      existingUserGroupRole.role = role;
-      await this.userGroupRoleRepository.save(existingUserGroupRole);
-    } else {
-      // Add user to group
-      const userGroupRole = this.userGroupRoleRepository.create({
-        user,
-        group,
-        role,
       });
 
-      await this.userGroupRoleRepository.save(userGroupRole);
-    }
+      if (existingUserGroupRole) {
+        // Update role if user already in group
+        existingUserGroupRole.role = role;
+        await this.userGroupRoleRepository.save(existingUserGroupRole);
+      } else {
+        // Add user to group
+        const userGroupRole = this.userGroupRoleRepository.create({
+          user,
+          group,
+          role,
+        });
 
-    // Return response without passwordHash
-    const { passwordHash, ...userWithoutPassword } = user;
+        await this.userGroupRoleRepository.save(userGroupRole);
+      }
 
-    return {
-      user: {
-        id: userWithoutPassword.id,
-        email: userWithoutPassword.email,
-      },
-      isNewUser,
-      invitationToken, // Only included for new users
-      role: {
-        id: role.id,
-        name: role.name,
-      },
-      group: {
-        id: group.id,
-        name: group.name,
-      },
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      Logger.error(`Add user to group error: ${error.message}`);
-      throw new Error(error.message);
-    } else {
-      Logger.error("Add user to group error: An unknown error occurred");
-      throw new Error("An unknown error occurred");
+      // Return response without passwordHash
+      const { passwordHash, ...userWithoutPassword } = user;
+
+      return {
+        user: {
+          id: userWithoutPassword.id,
+          email: userWithoutPassword.email,
+        },
+        isNewUser,
+        invitationToken, // Only included for new users
+        role: {
+          id: role.id,
+          name: role.name,
+        },
+        group: {
+          id: group.id,
+          name: group.name,
+        },
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        Logger.error(`Add user to group error: ${error.message}`);
+        throw new Error(error.message);
+      } else {
+        Logger.error("Add user to group error: An unknown error occurred");
+        throw new Error("An unknown error occurred");
+      }
     }
   }
-}
 
   // async addUserToGroup(
   //   groupId: number,
@@ -429,6 +467,7 @@ export class GroupService {
         lastName: ugr.user.lastName,
         role: ugr.role.name,
         roleId: ugr.role.id,
+        emailVerified: ugr.user.emailVerified,
       }));
     } catch (error) {
       if (error instanceof Error) {
@@ -580,7 +619,7 @@ export class GroupService {
 
   async completeRegistration(
     token: string,
-    userData: { password: string; firstName: string; lastName: string }
+    userData: { firstName: string; lastName: string }
   ): Promise<any> {
     const payload: any = jwt.verify(token, authConfig.jwtSecret);
 
@@ -588,24 +627,21 @@ export class GroupService {
       throw new Error("Invalid token type");
     }
 
+    console.log("payload", payload);
+
     const user = await this.userRepository.findOne({
-      where: { id: payload.userId },
+      where: { id: payload.sub },
     });
+
+    console.log("user", user);
 
     if (!user) {
       Logger.error(
-        `Complete registration error: User not found (id: ${payload.userId})`
+        `Complete registration error: User not found (id: ${payload.sub})`
       );
       throw new Error("User not found");
     }
 
-    if (user.passwordHash) {
-      throw new Error("Account already activated");
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
-    user.passwordHash = hashedPassword;
     user.firstName = userData.firstName;
     user.lastName = userData.lastName;
     user.emailVerified = true;
@@ -669,15 +705,117 @@ export class GroupService {
     };
   }
 
-  changeUserRoleInGroup(groupId: number, userId: number, newRoleId: number) {
-    return this.userGroupRoleRepository
-      .createQueryBuilder()
-      .update(UserGroupRole)
-      .set({ role: { id: newRoleId } })
-      .where("userId = :userId AND groupId = :groupId", {
-        userId,
-        groupId,
-      })
-      .execute();
+  async changeUserRoleInGroup(
+    groupId: number,
+    userId: number,
+    newRoleId: number
+  ): Promise<UserGroupRole> {
+    // Find the existing record with all relations
+    const userGroupRole = await this.userGroupRoleRepository.findOne({
+      where: {
+        user: { id: userId },
+        group: { id: groupId },
+      },
+      relations: ["role", "user", "group"],
+    });
+
+    if (!userGroupRole) {
+      throw new Error("User is not in this group");
+    }
+
+    const newRole = await this.roleRepository.findOne({
+      where: { id: newRoleId },
+    });
+
+    if (!newRole) {
+      throw new Error("Role not found");
+    }
+
+    console.log("BEFORE UPDATE:");
+    console.log("userGroupRole.id:", userGroupRole.id);
+    console.log("userGroupRole.role.id:", userGroupRole.role.id);
+    console.log("userGroupRole.role.name:", userGroupRole.role.name);
+    console.log("newRole.id:", newRole.id);
+    console.log("newRole.name:", newRole.name);
+
+    // Try Method 1: Direct assignment
+    userGroupRole.role = newRole;
+
+    console.log("AFTER ASSIGNMENT:");
+    console.log("userGroupRole.role.id:", userGroupRole.role.id);
+    console.log("userGroupRole.role.name:", userGroupRole.role.name);
+
+    // Save the changes
+    const savedResult = await this.userGroupRoleRepository.save(userGroupRole);
+
+    console.log("AFTER SAVE:");
+    console.log("savedResult.role.id:", savedResult.role.id);
+    console.log("savedResult.role.name:", savedResult.role.name);
+
+    // Verify the change by fetching fresh from database
+    const verifyResult = await this.userGroupRoleRepository.findOne({
+      where: { id: userGroupRole.id },
+      relations: ["role"],
+    });
+
+    console.log("VERIFICATION FROM DB:");
+    console.log("verifyResult.role.id:", verifyResult?.role.id);
+    console.log("verifyResult.role.name:", verifyResult?.role.name);
+
+    return savedResult;
   }
+
+  async getGroupCoaches(groupId: number): Promise<User[]> {
+    try {
+      // Find all user-group-role associations for the group
+      const userGroupRoles = await this.userGroupRoleRepository.find({
+        where: { group: { id: groupId } },
+        relations: ["user", "role"],
+      });
+
+      // Filter users with the Coach role
+      const coaches = userGroupRoles
+        .filter((ugr) => ugr.role.name === "Coach")
+        .map((ugr) => ugr.user);
+
+      return coaches;
+    } catch (error) {
+      if (error instanceof Error) {
+        Logger.error(`Get group coaches error: ${error.message}`);
+        throw new Error(error.message);
+      } else {
+        Logger.error("Get group coaches error: An unknown error occurred");
+        throw new Error("An unknown error occurred");
+      }
+    }
+  }
+
+
+  async getEvaluatorsByGroup(
+    groupId: number
+  ): Promise<User[]> {
+    try {
+      // Find all user-group-role associations for the group
+      const userGroupRoles = await this.userGroupRoleRepository.find({
+        where: { group: { id: groupId } },
+        relations: ["user", "role"],
+      });
+
+      // Filter users with the Evaluator role
+      const evaluators = userGroupRoles
+        .filter((ugr) => ugr.role.name === "Evaluator")
+        .map((ugr) => ugr.user);
+
+      return evaluators;
+    } catch (error) {
+      if (error instanceof Error) {
+        Logger.error(`Get group evaluators error: ${error.message}`);
+        throw new Error(error.message);
+      } else {
+        Logger.error("Get group evaluators error: An unknown error occurred");
+        throw new Error("An unknown error occurred");
+      }
+    }
+  }
+  
 }

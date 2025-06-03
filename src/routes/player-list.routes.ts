@@ -39,7 +39,7 @@ router.post(
 router.get(
   "/:groupId",
   authMiddleware,
-  requirePermission("view_player_lists") as RequestHandler,
+  // requirePermission("view_player_lists") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -178,6 +178,26 @@ router.get(
       .withMessage("Player ID must be an integer"),
   ],
   playerListController.getPlayerListsByPlayer
+);
+
+
+/**
+ * @route   GET /api/v1/player-list/:groupId/attributes
+ * @desc    Get player attributes for a group
+ * @access  Private
+ */
+
+router.get(
+  "/:groupId/filter/attributes",
+  authMiddleware,
+  requirePermission("view_player_lists") as RequestHandler,
+  [
+    param("groupId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
+  ],
+  playerListController.getAttributesGroupId
 );
 
 export default router;

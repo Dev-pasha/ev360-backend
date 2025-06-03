@@ -3,7 +3,7 @@ import { AppDataSource } from './config/database';
 import app from './app';
 import Logger from './config/logger';
 
-const PORT = process.env.PORT 
+const PORT = process.env.PORT || 5000;
 
 // Initialize database connection
 AppDataSource.initialize()

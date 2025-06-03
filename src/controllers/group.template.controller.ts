@@ -225,7 +225,7 @@ export class GroupTemplateController {
         groupTemplateId,
         categoryId,
         req.body
-        );
+      );
 
       // Update category in group template
       const groupTemplate = await this.groupTemplateService.updateCategory(
@@ -288,6 +288,38 @@ export class GroupTemplateController {
 
   //   SKILLS CONTROLLER
 
+  GetSkillsInCategoryInGroupTemplate = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json(errorResponse("Unauthorized", 401));
+        return;
+      }
+
+      const { groupTemplateId, categoryId } = req.query;
+
+      // Get skills in category in group template
+      const groupTemplate = await this.groupTemplateService.getSkillsInCategory(
+        parseInt(groupTemplateId as string),
+        parseInt(categoryId as string)
+      );
+
+      res.status(200).json(
+        successResponse({
+          message: "Skills in category retrieved successfully",
+          groupTemplate,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in retrieving skills in category: ", error);
+      res
+        .status(400)
+        .json(errorResponse("Retrieving skills failed", 400, error));
+    }
+  };
+
   AddSkillToCategoryInGroupTemplate = async (
     req: Request,
     res: Response
@@ -315,6 +347,8 @@ export class GroupTemplateController {
         parseInt(categoryId as string),
         req.body.name
       );
+
+      console.log("groupTemplate", groupTemplate);
 
       res.status(200).json(
         successResponse({
@@ -417,6 +451,40 @@ export class GroupTemplateController {
   };
 
   //   METRIC CONTROLLER
+
+  getAllMetrics = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json(errorResponse("Unauthorized", 401));
+        return;
+      }
+
+      const { groupTemplateId, categoryId, skillId } = req.query;
+
+      // Get all metrics for skill in category in group template
+      const groupTemplate = await this.groupTemplateService.getMetrics(
+        parseInt(groupTemplateId as string),
+        parseInt(categoryId as string),
+        parseInt(skillId as string)
+      );
+
+      res.status(200).json(
+        successResponse({
+          message: "Metrics retrieved successfully",
+          groupTemplate,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in retrieving metrics: ", error);
+      res.status(400).json(errorResponse("Retrieving metrics failed", 400, error));
+    }
+    
+  };
+
+
 
   AddMetricToSkillInCategoryInGroupTemplate = async (
     req: Request,
@@ -553,4 +621,37 @@ export class GroupTemplateController {
       res.status(400).json(errorResponse("Metric deletion failed", 400, error));
     }
   };
+
+  GetGroupTemplateCategories = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json(errorResponse("Unauthorized", 401));
+        return;
+      }
+
+      const { groupTemplateId } = req.query;
+
+      // Get categories in group template
+      const groupTemplate =
+        await this.groupTemplateService.getGroupTemplateCategories(
+          parseInt(groupTemplateId as string)
+        );
+
+      res.status(200).json(
+        successResponse({
+          message: "Categories retrieved successfully",
+          groupTemplate,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in retrieving categories: ", error);
+      res
+        .status(400)
+        .json(errorResponse("Retrieving categories failed", 400, error));
+    }
+  }
+  
 }

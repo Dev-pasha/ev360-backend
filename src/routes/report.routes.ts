@@ -8,12 +8,12 @@ const router = Router();
 const reportController = new ReportController();
 
 /**
- * @route   POST /api/v1/reports/all-score
+ * @route   POST /api/v1/reports/:groupId/all-score
  * @desc    Generate All Score Report
  * @access  Private
  */
 router.post(
-  "/all-score",
+  "/:groupId/all-score",
   authMiddleware,
   requirePermission("generate_reports") as RequestHandler,
   [
@@ -25,10 +25,6 @@ router.post(
       .notEmpty()
       .isArray()
       .withMessage("event_ids is required and must be an array"),
-    body("evaluator_ids")
-      .notEmpty()
-      .isArray()
-      .withMessage("evaluator_ids is required and must be an array"),
   ],
   reportController.generateAllScoreReport
 );
@@ -45,6 +41,44 @@ router.post(
   requirePermission("generate_reports") as RequestHandler,
   [param("groupId")],
   reportController.createIndividualReport
+);
+
+/**
+ * @route   GET /api/v1/reports/:groupId/self-assessment/:eventId
+ * @desc    Get Self Assessment Report for a specific event
+ * @access  Private
+ */
+router.get(
+  "/:groupId/self-assessment/:eventId",
+  authMiddleware,
+  requirePermission("view_reports") as RequestHandler,
+  [
+    param("groupId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
+    param("eventId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Event ID must be an integer"),
+  ],
+  reportController.getSelfAssessmentReport
+);
+
+router.get(
+  "/:groupId/self-assessment/:eventId/players/:playerId",
+  [
+    param("groupId")
+      .isInt({ min: 1 })
+      .withMessage("Group ID must be a positive integer"),
+    param("eventId")
+      .isInt({ min: 1 })
+      .withMessage("Event ID must be a positive integer"),
+    param("playerId")
+      .isInt({ min: 1 })
+      .withMessage("Player ID must be a positive integer"),
+  ],
+  reportController.getPlayerSelfAssessmentDetail
 );
 
 export default router;

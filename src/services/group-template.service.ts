@@ -389,6 +389,22 @@ export class GroupTemplateService {
   }
   // SKILL METHODS
 
+  async getSkillsInCategory(
+    groupTemplateId: number,
+    categoryId: number
+  ): Promise<GroupTemplateSkill[]> {
+    const category = await this.groupTemplateCategoryRepository.findOne({
+      where: { id: categoryId, groupTemplate: { id: groupTemplateId } },
+      relations: ["skills"],
+    });
+
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    return category.skills;
+  }
+
   async addSkill(
     groupTemplateId: number,
     categoryId: number,
@@ -496,6 +512,26 @@ export class GroupTemplateService {
   }
 
   // METRIC METHODS
+
+  async getMetrics(
+    groupTemplateId: number,
+    categoryId: number,
+    skillId: number
+  ): Promise<GroupTemplateMetric[]> {
+    const skill = await this.groupTemplateSkillRepository.findOne({
+      where: {
+        id: skillId,
+        category: { id: categoryId, groupTemplate: { id: groupTemplateId } },
+      },
+      relations: ["metrics"],
+    });
+
+    if (!skill) {
+      throw new Error("Skill not found");
+    }
+
+    return skill.metrics;
+  }
 
   async addMetric(
     groupTemplateId: number,
@@ -628,5 +664,24 @@ export class GroupTemplateService {
 
       await this.groupTemplateMetricRepository.save(remainingMetrics);
     }
+  }
+
+  async getGroupTemplateCategories(
+    groupTemplateId: number
+  ): Promise<GroupTemplateCategory[]> {
+    const groupTemplate = await this.groupTemplateRepository.find({
+      where: { id: groupTemplateId },
+      relations: [
+        "categories",
+        "categories.skills",
+        "categories.skills.metrics",
+      ],
+    });
+
+    if (!groupTemplate) {
+      throw new Error("Group template not found");
+    }
+
+    return groupTemplate.map((template) => template.categories).flat();
   }
 }

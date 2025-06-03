@@ -27,6 +27,8 @@ export class PlayerListController {
       const { groupId } = req.params;
       const { name } = req.body;
 
+      console.log("sadsd", groupId, name);
+
       const newList = await this.playerListService.createPlayerList(+groupId, {
         name,
       });
@@ -322,6 +324,17 @@ export class PlayerListController {
       const { groupId, listId } = req.params;
       const { action, playerIds } = req.body;
 
+      console.log(
+        "Group ID:",
+        groupId,
+        "List ID:",
+        listId,
+        "Action:",
+        action,
+        "Player IDs:",
+        playerIds
+      );
+
       let result;
       let message;
 
@@ -360,6 +373,43 @@ export class PlayerListController {
       res
         .status(400)
         .json(errorResponse("Failed to manage list players", 400, error));
+    }
+  };
+
+  /**
+   * Get Attributes group ID
+   */
+  getAttributesGroupId = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res
+          .status(400)
+          .json(errorResponse("Get attributes group ID failed", 400, errors));
+        return;
+      }
+
+      const { groupId } = req.params;
+      
+
+      console.log("Fetching attributes group ID for group:", groupId);
+
+      const attributesGroupId =
+        await this.playerListService.getGroupAttributes(+groupId);
+
+        console.log("Attributes Group ID:", attributesGroupId);
+
+      res.status(200).json(
+        successResponse({
+          message: "Attributes group ID fetched successfully",
+          attributesGroupId,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in fetching attributes group ID: ", error);
+      res
+        .status(400)
+        .json(errorResponse("Failed to fetch attributes group ID", 400, error));
     }
   };
 }

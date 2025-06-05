@@ -28,10 +28,18 @@ export function authMiddleware(
     const authHeader = req.headers.authorization;
     let token: string | undefined;
 
+
+    console.log("Auth Middleware called");
+    // Check for Authorization header
+    console.log("Authorization Header: ", authHeader);
+
     if (authHeader) {
       // Get token from header
       token = authHeader.split(" ")[1];
     } else if (req.cookies && req.cookies.accessToken) {
+
+      console.log("No Authorization header found, checking cookies");
+
       // If no Authorization header, check for cookie
       token = req.cookies.accessToken;
     }
@@ -49,6 +57,7 @@ export function authMiddleware(
       res.status(401).json({ message: "Invalid or expired token" });
       return resolve();
     }
+
 
     // Attach user to request
     req.user = {

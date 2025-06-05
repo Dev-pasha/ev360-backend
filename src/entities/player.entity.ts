@@ -59,27 +59,27 @@ export class Player {
   last_name!: string;
 
   @Column({ nullable: true })
-  number!: number; // jersey number
+  number?: number;
 
   @Column({ nullable: true })
-  jersey_colour!: JerseyColor;
+  jersey_colour?: JerseyColor;
 
   @Column({ type: "date", nullable: true })
-  date_of_birth!: Date;
+  date_of_birth?: Date;
 
   @Column({
     type: "enum",
     enum: Gender,
     nullable: true,
   })
-  gender!: Gender;
+  gender?: Gender;
 
   @ManyToOne(() => Group, { nullable: false })
   @JoinColumn({ name: "groupId" }) // Add this line
   group!: Group;
 
   @Column({ nullable: true })
-  headshot!: string; // URL to headshot image
+  headshot?: string; // URL to headshot image
 
   @ManyToOne(() => Position, { nullable: true })
   @JoinColumn({ name: "primary_position_id" }) // Add this line
@@ -94,48 +94,48 @@ export class Player {
   user!: User | null;
 
   @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
-  height!: number;
+  height?: number;
 
   @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
-  weight!: number;
+  weight?: number;
 
   @Column({
     type: "enum",
     enum: Hand,
     nullable: true,
   })
-  hand!: Hand;
+  hand?: Hand;
 
   @Column({ nullable: true })
-  email!: string;
+  email?: string;
 
   @Column({ nullable: true })
-  secondary_email!: string;
+  secondary_email?: string;
 
   @Column({
     type: "enum",
     enum: Foot,
     nullable: true,
   })
-  foot!: Foot;
+  foot?: Foot;
 
   @Column({ nullable: true })
-  level!: string;
+  level?: string;
 
   @Column({ nullable: true })
-  zone!: string;
+  zone?: string;
 
   @Column({ nullable: true })
-  custom_field_1!: string;
+  custom_field_1?: string;
 
   @Column({ nullable: true })
-  custom_field_2!: string;
+  custom_field_2?: string;
 
   @Column({ nullable: true })
-  custom_field_3!: string;
+  custom_field_3?: string;
 
   @Column({ nullable: true })
-  custom_field_4!: string;
+  custom_field_4?: string;
 
   @Column({ default: false })
   check_in!: boolean;

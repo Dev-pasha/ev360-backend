@@ -397,7 +397,7 @@ export class PlayerListController {
       const attributesGroupId =
         await this.playerListService.getGroupAttributes(+groupId);
 
-        console.log("Attributes Group ID:", attributesGroupId);
+        // console.log("Attributes Group ID:", attributesGroupId);
 
       res.status(200).json(
         successResponse({

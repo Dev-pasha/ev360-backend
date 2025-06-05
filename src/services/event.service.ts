@@ -951,6 +951,7 @@ export class EventService {
       comment?: string;
       choice_value?: number;
       attempt_number?: number;
+      note?: string;
     }[]
   ): Promise<EvaluationResult[]> {
     try {
@@ -996,6 +997,7 @@ export class EventService {
               evaluation.choice_value || existing.choice_value;
             existing.attempt_number =
               evaluation.attempt_number || existing.attempt_number;
+            existing.note = evaluation.note || existing.note;
 
             const updated = await transactionalEntityManager.save(existing);
             results.push(updated);
@@ -1010,6 +1012,7 @@ export class EventService {
               comment: evaluation.comment,
               choice_value: evaluation.choice_value,
               attempt_number: evaluation.attempt_number,
+              note: evaluation.note,
             });
 
             const saved = await transactionalEntityManager.save(result);
@@ -1042,6 +1045,11 @@ export class EventService {
       skillId?: number;
     }
   ): Promise<EvaluationResult[]> {
+
+
+    console.log("🔍 [INPUT] eventId:", eventId, "Type:", typeof eventId);
+
+
     let query = this.evaluationResultRepository
       .createQueryBuilder("result")
       .leftJoinAndSelect("result.player", "player")
@@ -1069,6 +1077,12 @@ export class EventService {
         });
       }
     }
+
+    console.log("🔍 [QUERY] Fetching event results with filters:", 
+        
+      JSON.stringify(filters, null, 2));
+      console.log("🔍 [QUERY] SQL:", query.getSql())
+      ;
 
     return query.getMany();
   }

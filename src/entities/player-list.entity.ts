@@ -32,7 +32,7 @@ export class PlayerList {
   @Column({ default: false })
   is_dynamic!: boolean;
 
-  @ManyToMany(() => Player)
+  @ManyToMany(() => Player, (player) => player.player_lists)
   @JoinTable({
     name: "player_list_players",
     joinColumn: { name: "player_list_id", referencedColumnName: "id" },

@@ -177,6 +177,36 @@ export class AuthController {
     }
   };
 
+  UpdateProfile = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json(errorResponse("Unauthorized", 401));
+        return;
+      }
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json(errorResponse("Profile update failed", 400, errors));
+        return;
+      }
+
+      const { firstName, lastName } = req.body;
+
+      const updatedUser = await this.authService.updateProfile(req.user.id, {
+        firstName,
+        lastName,
+      });
+
+      // Remove password hash from response
+      const { passwordHash, ...userWithoutPassword } = updatedUser;
+
+      res.json(successResponse(userWithoutPassword));
+    } catch (error) {
+      logger.error("Error in profile update: ", error);
+      res.status(500).json(errorResponse("Profile update failed", 500, error));
+    }
+  }
+
   VerifyEmail = async (req: Request, res: Response): Promise<void> => {
     try {
       const errors = validationResult(req);
@@ -211,7 +241,7 @@ export class AuthController {
         return;
       }
 
-      const user = await this.authService.getUserById(req.user.id);
+      const user = await this.authService.getUserById(Number(req.user.id));
 
       if (!user) {
         res.status(404).json(errorResponse("User not found", 404));
@@ -220,6 +250,7 @@ export class AuthController {
 
       // Remove password hash from response
       const { passwordHash, ...userWithoutPassword } = user;
+
 
       res.json(successResponse(userWithoutPassword));
     } catch (error) {
@@ -283,4 +314,6 @@ export class AuthController {
         .json(errorResponse("Email verification failed", 500, error));
     }
   };
+
+  
 }

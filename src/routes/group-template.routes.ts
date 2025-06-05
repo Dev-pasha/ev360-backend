@@ -73,6 +73,28 @@ router.put(
   groupTemplateController.UpdateGroupTemplate
 );
 
+
+// get group template categories
+/**
+ * @route   GET /api/v1/group-templates/:groupId/categories
+ * @desc    Get categories in group template
+ * @access  Private
+ */
+router.get(
+  "/:groupId/categories",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    query("groupTemplateId")
+      .isInt()
+      .withMessage("Group Template ID must be an integer"),
+  ],
+  groupTemplateController.GetCategoriesInGroupTemplate
+);
+
+
+
 /**
  * @route   POST /api/v1/group-templates/:groupId/categories
  * @desc    Add category to group template
@@ -312,5 +334,119 @@ router.get(
   ],
   groupTemplateController.GetGroupTemplateCategories
 );
+
+
+
+/**
+ * @route   GET /api/v1/group-templates/:groupId/skills
+ * @desc    Get all skills in a group template with comment counts
+ * @access  Private
+ */
+router.get(
+  "/:groupId/skills",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+  ],
+  groupTemplateController.GetGroupSkillsWithComments
+);
+
+
+
+/**
+ * @route   GET /api/v1/group-templates/:groupId/:skillId/comments
+ * @desc    Get comments for a skill in a group template
+ * @access  Private
+ */
+
+
+router.get(
+  "/:groupId/:skillId/comments",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    param("skillId").isInt().withMessage("Skill ID must be an integer"),
+  ],
+  groupTemplateController.GetSkillComments
+);
+
+
+/**
+ * @route   POST /api/v1/group-templates/:groupId/:skillId/comments
+ * @desc    Add comment to skill in group template
+ * @access  Private
+ */
+
+router.post(
+  "/:groupId/:skillId/comments",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    param("skillId").isInt().withMessage("Skill ID must be an integer"),
+    body("comment").notEmpty().withMessage("Comment is required"),
+    body("category").optional().isString().withMessage("Category must be a string"),
+  ],
+  groupTemplateController.CreateSkillComment
+);
+
+
+/**
+ * @route   PUT /api/v1/group-templates/:groupId/:skillId/comments
+ * @desc    Update comment in skill in group template
+ * @access  Private
+ */
+
+router.put(
+  "/:groupId/:skillId/comments/:commentId",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    param("skillId").isInt().withMessage("Skill ID must be an integer"),
+    param("commentId").isInt().withMessage("Comment ID must be an integer"),
+  ],
+  groupTemplateController.UpdateSkillComment
+);
+
+
+/**
+ * @route   DELETE /api/v1/group-templates/:groupId/:skillId/comments/:commentId
+ * @desc    Delete comment from skill in group template
+ * @access  Private
+ */
+
+router.delete(
+  "/:groupId/:skillId/comments/:commentId",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    param("skillId").isInt().withMessage("Skill ID must be an integer"),
+    param("commentId").isInt().withMessage("Comment ID must be an integer"),
+  ],
+  groupTemplateController.DeleteSkillComment
+);
+
+/**
+ * @route   GET /api/v1/group-templates/:groupId/:skillId/comments/grouped
+ * @desc    Get comments grouped by category for a skill in a group template
+ * @access  Private
+ */
+
+router.get(
+  "/:groupId/:skillId/comments/grouped",
+  authMiddleware,
+  [
+    requirePermission("manage_group_settings") as RequestHandler,
+    param("groupId").isInt().withMessage("Group ID must be an integer"),
+    param("skillId").isInt().withMessage("Skill ID must be an integer"),
+  ],
+  groupTemplateController.GetCommentsGroupedByCategory
+);
+
+
 
 export default router;

@@ -6,9 +6,12 @@ import { authMiddleware } from "../middleware/auth.middleware";
 import { requirePermission } from "../middleware/permission.middleware";
 import { EventType } from "../entities/event.entity";
 import { EvaluatorStatus } from "../entities/event-evaluator.entity";
+import { GroupTemplateController } from "../controllers/group.template.controller";
 
 const router = Router();
 const eventController = new EventController();
+const groupTemplateController = new GroupTemplateController();
+
 
 /**
  * @route   POST /api/v1/events/:groupId
@@ -107,9 +110,8 @@ router.put(
   eventController.updateEvent
 );
 
-
-
-router.get('/:groupId/all',
+router.get(
+  "/:groupId/all",
   authMiddleware,
   requirePermission("view_events") as RequestHandler,
   [
@@ -120,9 +122,6 @@ router.get('/:groupId/all',
   ],
   eventController.getAllEvents
 );
-
-
-
 
 /**
  * @route   GET /api/v1/events/:groupId/:eventId
@@ -489,6 +488,106 @@ router.get(
       .withMessage("Event ID must be an integer"),
   ],
   eventController.syncEventSkills
+);
+
+/**
+ * @route   POST /api/v1/events/:eventId/evaluations/:evaluationId/notes
+ * @desc    Add note to evaluation result
+ * @access  Private
+ */
+router.post(
+  "/:eventId/evaluations/:evaluationId/notes",
+  authMiddleware,
+  requirePermission("submit_evaluations") as RequestHandler,
+  [
+    param("eventId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Event ID must be an integer"),
+    param("evaluationId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Evaluation ID must be an integer"),
+    body("note")
+      .notEmpty()
+      .isString()
+      .trim()
+      .isLength({ min: 1, max: 1000 })
+      .withMessage("Note must be a string between 1 and 1000 characters"),
+  ],
+  groupTemplateController.addEvaluationNote
+);
+
+/**
+ * @route   PUT /api/v1/events/:eventId/evaluations/:evaluationId/notes
+ * @desc    Update note in evaluation result
+ * @access  Private
+ */
+router.put(
+  "/:eventId/evaluations/:evaluationId/notes",
+  authMiddleware,
+  requirePermission("submit_evaluations") as RequestHandler,
+  [
+    param("eventId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Event ID must be an integer"),
+    param("evaluationId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Evaluation ID must be an integer"),
+    body("note")
+      .notEmpty()
+      .isString()
+      .trim()
+      .isLength({ min: 1, max: 1000 })
+      .withMessage("Note must be a string between 1 and 1000 characters"),
+  ],
+  groupTemplateController.updateEvaluationNote
+);
+
+/**
+ * @route   DELETE /api/v1/events/:eventId/evaluations/:evaluationId/notes
+ * @desc    Delete note from evaluation result
+ * @access  Private
+ */
+router.delete(
+  "/:eventId/evaluations/:evaluationId/notes",
+  authMiddleware,
+  requirePermission("submit_evaluations") as RequestHandler,
+  [
+    param("eventId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Event ID must be an integer"),
+    param('metricId')
+      .notEmpty()
+      .isInt()
+      .withMessage("Metric ID must be an integer"),
+  ],
+  groupTemplateController.deleteEvaluationNote
+);
+
+/**
+ * @route   GET /api/v1/events/:eventId/evaluations/:evaluationId/notes
+ * @desc    Get note from evaluation result
+ * @access  Private
+ */
+router.get(
+  "/:eventId/evaluations/:evaluationId/notes",
+  authMiddleware,
+  requirePermission("view_evaluations") as RequestHandler,
+  [
+    param("eventId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Event ID must be an integer"),
+    param("evaluationId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Evaluation ID must be an integer"),
+  ],
+  groupTemplateController.getEvaluationNote
 );
 
 export default router;

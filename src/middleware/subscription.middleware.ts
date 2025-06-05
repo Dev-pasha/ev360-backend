@@ -19,6 +19,7 @@ export const canCreateGroupMiddleware = async (
       res.status(401).json(errorResponse("Unauthorized", 401));
       return;
     }
+    
 
     const canCreate = await subscriptionService.canCreateGroup(user.id);
     

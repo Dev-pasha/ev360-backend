@@ -19,11 +19,13 @@ import resourceRoutes from "./resource.routes";
 import reportRoutes from "./report.routes";
 import messageTemplateRoutes from "./message-template.routes";
 import messageRoutes from "./message.routes";
+import statsRoutes from "./stats.routes";
 
 const router = Router();
 
 
 // Mount routes
+router.use('/stats', statsRoutes);
 router.use("/auth", authRoutes);
 router.use("/group", groupRoutes);
 router.use("/evaluation-template", templates);

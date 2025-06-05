@@ -18,6 +18,7 @@ import {
 } from "../entities/subscription-plan.entity";
 import Logger from "../config/logger";
 import { EmailService } from "./email.service";
+import { Role } from "../entities/role.entity";
 
 export interface DashboardMetrics {
   totalRevenue: number;
@@ -52,6 +53,7 @@ export class AdminAnalyticsService {
   private groupRepository: Repository<Group>;
   public planRepository: Repository<SubscriptionPlan>;
   private emailService: EmailService;
+  private roleRepository: Repository<Role>;
 
   constructor() {
     this.subscriptionRepository = AppDataSource.getRepository(Subscription);
@@ -60,6 +62,7 @@ export class AdminAnalyticsService {
     this.groupRepository = AppDataSource.getRepository(Group);
     this.planRepository = AppDataSource.getRepository(SubscriptionPlan);
     this.emailService = new EmailService();
+    this.roleRepository = AppDataSource.getRepository(Role);
   }
 
   /**
@@ -1236,112 +1239,122 @@ export class AdminAnalyticsService {
   /**
    * Create new customer account from admin dashboard
    */
-  async createCustomer(customerData: {
-    email: string;
-    firstName?: string;
-    lastName?: string;
-    password?: string;
-    planId?: number;
-    trialDays?: number;
-    sendWelcomeEmail?: boolean;
-    customNotes?: string;
-  }): Promise<{
-    customer: User;
-    subscription?: Subscription;
-    temporaryPassword?: string;
-  }> {
-    try {
-      const {
-        email,
-        firstName,
-        lastName,
-        password,
-        planId,
-        trialDays = 0,
-        sendWelcomeEmail = true,
-        customNotes,
-      } = customerData;
+ async createCustomer(customerData: {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  password?: string;
+  planId?: number;
+  trialDays?: number;
+  sendWelcomeEmail?: boolean;
+  customNotes?: string;
+}): Promise<{
+  customer: User;
+  subscription?: Subscription;
+  temporaryPassword?: string;
+}> {
+  try {
+    const { 
+      email, 
+      firstName, 
+      lastName, 
+      password, 
+      planId, 
+      trialDays = 0,
+      sendWelcomeEmail = true,
+      customNotes 
+    } = customerData;
 
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        throw new Error("Invalid email format");
-      }
-
-      // Check if customer already exists
-      const existingUser = await this.userRepository.findOne({
-        where: { email: email.toLowerCase().trim() },
-      });
-
-      if (existingUser) {
-        throw new Error("Customer with this email already exists");
-      }
-
-      // Generate password if not provided
-      let temporaryPassword: string | undefined;
-      let passwordHash: string;
-
-      if (password) {
-        // Use provided password
-        const saltRounds = 10;
-        passwordHash = await bcrypt.hash(password, saltRounds);
-      } else {
-        // Generate temporary password
-        temporaryPassword = this.generateTemporaryPassword();
-        const saltRounds = 10;
-        passwordHash = await bcrypt.hash(temporaryPassword, saltRounds);
-      }
-
-      // Create customer account
-      const customer = this.userRepository.create({
-        email: email.toLowerCase().trim(),
-        passwordHash,
-        firstName: firstName?.trim(),
-        lastName: lastName?.trim(),
-        emailVerified: true, // Admin-created accounts are verified by default
-        is_account_owner: true,
-      });
-
-      const savedCustomer = await this.userRepository.save(customer);
-
-      // Create subscription if plan is provided
-      let subscription: Subscription | undefined;
-      if (planId) {
-        subscription = await this.createCustomerSubscription(
-          savedCustomer.id,
-          planId,
-          {
-            trialDays,
-            notes: customNotes,
-          }
-        );
-      }
-
-      // Log the customer creation
-      Logger.info(
-        `Customer created by admin: ${savedCustomer.email} (ID: ${savedCustomer.id})` +
-          (subscription ? ` with subscription to plan ${planId}` : "")
-      );
-
-      // TODO: Send welcome email if requested
-      if (sendWelcomeEmail) {
-        await this.sendCustomerWelcomeEmail(
-          savedCustomer,
-          temporaryPassword,
-          subscription
-        );
-      }
-
-      return {
-        customer: savedCustomer,
-        subscription,
-        temporaryPassword,
-      };
-    } catch (error) {
-      Logger.error("Error creating customer:", error);
-      throw error;
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid email format");
     }
+
+    // Check if customer already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email: email.toLowerCase().trim() }
+    });
+
+    if (existingUser) {
+      throw new Error("Customer with this email already exists");
+    }
+
+    // Generate password if not provided
+    let temporaryPassword: string | undefined;
+    let passwordHash: string;
+
+    if (password) {
+      // Use provided password
+      const saltRounds = 10;
+      passwordHash = await bcrypt.hash(password, saltRounds);
+    } else {
+      // Generate temporary password
+      temporaryPassword = this.generateTemporaryPassword();
+      const saltRounds = 10;
+      passwordHash = await bcrypt.hash(temporaryPassword, saltRounds);
+    }
+
+    // Create customer account
+    const customer = this.userRepository.create({
+      email: email.toLowerCase().trim(),
+      passwordHash,
+      firstName: firstName?.trim(),
+      lastName: lastName?.trim(),
+      emailVerified: true, // Admin-created accounts are verified by default
+      is_account_owner: true // ⭐ NEW: Mark as account owner
+    });
+
+    const savedCustomer = await this.userRepository.save(customer);
+
+    // ⭐ NEW: Find or create the "owner" role
+    let ownerRole = await this.roleRepository.findOne({
+      where: { name: 'owner' }
+    });
+
+    if (!ownerRole) {
+      // Create owner role if it doesn't exist
+      ownerRole = this.roleRepository.create({
+        name: 'owner',
+        description: 'Full administrative access to groups and teams'
+      });
+      ownerRole = await this.roleRepository.save(ownerRole);
+    }
+
+    // Create subscription if plan is provided
+    let subscription: Subscription | undefined;
+    if (planId) {
+      subscription = await this.createCustomerSubscription(savedCustomer.id, planId, {
+        trialDays,
+        notes: customNotes
+      });
+
+      // // ⭐ NEW: Create initial group with owner role assignment
+      // await this.createInitialGroupForCustomer(savedCustomer, ownerRole, subscription);
+    }
+
+    // Log the customer creation
+    Logger.info(
+      `Customer created by admin: ${savedCustomer.email} (ID: ${savedCustomer.id})` +
+      (subscription ? ` with subscription to plan ${planId}` : '') +
+      ` and assigned owner role`
+    );
+
+    // TODO: Send welcome email if requested
+    if (sendWelcomeEmail) {
+      await this.sendCustomerWelcomeEmail(savedCustomer, temporaryPassword, subscription);
+    }
+
+    return {
+      customer: savedCustomer,
+      subscription,
+      temporaryPassword
+    };
+  } catch (error) {
+    Logger.error("Error creating customer:", error);
+    throw error;
   }
+}
 
   /**
    * Generate secure temporary password

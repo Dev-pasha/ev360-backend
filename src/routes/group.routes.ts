@@ -14,13 +14,40 @@ const authController = new GroupController();
  * @access  Public
  */
 
-router.post(
-  "/",
-  [body("name").notEmpty().withMessage("Group name is required")],
+// router.post(
+//   "/create",
+//   // authMiddleware,
+//   // requirePermission("create_groups") as RequestHandler,
+//   canCreateGroupMiddleware,
+//   authController.CreateGroup
+// );
+
+router.get(
+  "/user-groups",
   authMiddleware,
-  // requirePermission("create_groups") as RequestHandler,
-  // canCreateGroupMiddleware,
-  [body("name").notEmpty().withMessage("Group name is required")],
+  [
+    // requirePermission("view_groups") as RequestHandler,
+  ],
+  authController.GetUserGroups
+);
+
+/**
+ * @route   GET /api/v1/group/:groupId
+ * @desc    Get group by ID
+ * @access  Public
+ */
+
+router.get(
+  "/:groupId",
+  authMiddleware,
+  [param("groupId").isInt().withMessage("Group ID must be an integer")],
+  authController.GetGroupById
+);
+
+router.post(
+  "/health",
+  authMiddleware,
+  canCreateGroupMiddleware,
   authController.CreateGroup
 );
 
@@ -30,7 +57,7 @@ router.post(
  * @access  Private
  */
 
-router.get("/user", authMiddleware, authController.GetUserGroups);
+// router.get("/user-groups", authMiddleware, authController.GetUserGroups);
 
 /**
  * @route   PUT /api/v1/group/:groupId

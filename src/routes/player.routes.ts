@@ -135,6 +135,23 @@ router.post(
   playerController.CreatePlayerAccount
 );
 
-
+/**
+ * @route   GET /api/v1/player-group/:groupId/categories
+ * @desc    Get categories by group ID
+ * @access  Private
+ *
+ */
+router.get(
+  "/:groupId/categories",
+  authMiddleware,
+  requirePermission("view_players") as RequestHandler,
+  [
+    param("groupId")
+      .optional()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
+  ],
+  playerController.GetCategoriesByGroup
+);
 
 export default router;

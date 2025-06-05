@@ -8,6 +8,9 @@ import { GroupTemplate } from "../entities/group-template.entity";
 import { Group } from "../entities/group.entity";
 import { DataSource, In } from "typeorm";
 import { CategoryService } from "./category.service";
+import { GroupTemplateSkillComment } from "../entities/group-template-skill-comment.entity";
+import { EvaluationResult } from "../entities/evaluation-result.entity";
+import Logger from "../config/logger";
 
 export class GroupTemplateService {
   private groupRepository;
@@ -17,6 +20,10 @@ export class GroupTemplateService {
   private groupTemplateSkillRepository;
   private groupTemplateMetricRepository;
   private readonly categoryService: CategoryService;
+  private skillCommentRepository;
+  private skillRepository;
+  private metricRepository;
+  private evaluationResultRepository;
 
   constructor(private dataSource: DataSource = AppDataSource) {
     this.groupRepository = this.dataSource.getRepository(Group);
@@ -31,6 +38,12 @@ export class GroupTemplateService {
     this.groupTemplateMetricRepository =
       this.dataSource.getRepository(GroupTemplateMetric);
     this.categoryService = new CategoryService(this.dataSource);
+    this.skillCommentRepository = this.dataSource.getRepository(
+      GroupTemplateSkillComment
+    );
+    this.skillRepository = this.dataSource.getRepository(GroupTemplateSkill);
+    this.metricRepository = this.dataSource.getRepository(GroupTemplateMetric);
+    this.evaluationResultRepository = this.dataSource.getRepository(EvaluationResult);
   }
 
   async assignTemplateToGroup(
@@ -260,6 +273,23 @@ export class GroupTemplateService {
   }
 
   // CATEGORY METHODS
+
+
+  async getCategoriesInGroupTemplate(
+    groupTemplateId: number
+  ): Promise<GroupTemplateCategory[]> {
+    const groupTemplate = await this.groupTemplateRepository.findOne({
+      where: { id: groupTemplateId },
+      relations: ["categories", "categories.skills", "categories.skills.metrics"],
+    });
+
+    if (!groupTemplate) {
+      throw new Error("Group template not found");
+    }
+
+    return groupTemplate.categories;
+  }
+
 
   async addCategory(
     groupTemplateId: number,
@@ -683,5 +713,448 @@ export class GroupTemplateService {
     }
 
     return groupTemplate.map((template) => template.categories).flat();
+  }
+
+  async createSkillComment(
+    skillId: number,
+    commentData: {
+      comment: string;
+      category?: string;
+      order?: number;
+    }
+  ) {
+    const skill = await this.skillRepository.findOne({
+      where: { id: skillId },
+      relations: ["category"],
+    });
+
+    if (!skill) {
+      throw new Error("Skill not found");
+    }
+
+    const skillComment = this.skillCommentRepository.create({
+      skill,
+      comment: commentData.comment,
+      category: commentData.category || "neutral",
+      order: commentData.order || 0,
+    });
+
+    const savedComment = await this.skillCommentRepository.save(skillComment);
+
+    return {
+      comment: savedComment,
+      skill: {
+        id: skill.id,
+        name: skill.name,
+        categoryName: skill.category?.name || "Uncategorized",
+      },
+    };
+  }
+
+  async getSkillComments(skillId: number) {
+    const skill = await this.skillRepository.findOne({
+      where: { id: skillId },
+      relations: ["category", "prefilledComments"],
+      order: { prefilledComments: { order: "ASC" } },
+    });
+
+    if (!skill) {
+      throw new Error("Skill not found");
+    }
+
+    const activeComments = skill.prefilledComments.filter(
+      (comment) => comment.isActive
+    );
+
+    return {
+      skill: {
+        id: skill.id,
+        name: skill.name,
+        categoryName: skill.category?.name || "Uncategorized",
+      },
+      comments: activeComments,
+    };
+  }
+
+  // Get comments for a skill by metric ID (optimized)
+  async getCommentsByMetricId(metricId: number) {
+    const metric = await this.metricRepository.findOne({
+      where: { id: metricId },
+      relations: ["skill", "skill.category", "skill.prefilledComments"],
+    });
+
+    if (!metric || !metric.skill) {
+      throw new Error("Metric not found or has no associated skill");
+    }
+
+    const activeComments = metric.skill.prefilledComments.filter(
+      (comment) => comment.isActive
+    );
+
+    return {
+      skill: {
+        id: metric.skill.id,
+        name: metric.skill.name,
+        categoryName: metric.skill.category?.name || "Uncategorized",
+      },
+      comments: activeComments,
+    };
+  }
+
+  // Update comment
+  async updateSkillComment(
+    commentId: number,
+    updateData: {
+      comment?: string;
+      category?: string;
+      order?: number;
+      isActive?: boolean;
+    }
+  ) {
+    const comment = await this.skillCommentRepository.findOne({
+      where: { id: commentId },
+      relations: ["skill", "skill.category"],
+    });
+
+    if (!comment) {
+      throw new Error("Comment not found");
+    }
+
+    Object.assign(comment, updateData);
+    const updatedComment = await this.skillCommentRepository.save(comment);
+
+    return {
+      comment: updatedComment,
+      skill: {
+        id: comment.skill.id,
+        name: comment.skill.name,
+        categoryName: comment.skill.category?.name || "Uncategorized",
+      },
+    };
+  }
+
+  // Delete comment (soft delete by setting isActive = false)
+  async deleteSkillComment(commentId: number) {
+    const result = await this.updateSkillComment(commentId, {
+      isActive: false,
+    });
+    return { success: true, message: "Comment deleted successfully" };
+  }
+
+  async createBulkSkillComments(
+    skillId: number,
+    comments: Array<{
+      comment: string;
+      category?: string;
+      order?: number;
+    }>
+  ) {
+    const skill = await this.skillRepository.findOne({
+      where: { id: skillId },
+      relations: ["category"],
+    });
+
+    if (!skill) {
+      throw new Error("Skill not found");
+    }
+
+    const skillComments = comments.map((commentData, index) =>
+      this.skillCommentRepository.create({
+        skill,
+        comment: commentData.comment,
+        category: commentData.category || "neutral",
+        order: commentData.order !== undefined ? commentData.order : index,
+      })
+    );
+
+    const savedComments = await this.skillCommentRepository.save(skillComments);
+
+    return {
+      skill: {
+        id: skill.id,
+        name: skill.name,
+        categoryName: skill.category?.name || "Uncategorized",
+      },
+      comments: savedComments,
+    };
+  }
+
+  // Get comments grouped by category with skill info
+  async getSkillCommentsGrouped(skillId: number) {
+    const result = await this.getSkillComments(skillId);
+
+    const groupedComments = result.comments.reduce(
+      (grouped, comment) => {
+        const category = comment.category || "neutral";
+        if (!grouped[category]) {
+          grouped[category] = [];
+        }
+        grouped[category].push(comment);
+        return grouped;
+      },
+      {} as Record<string, typeof result.comments>
+    );
+
+    // Ensure all categories exist even if empty
+    const allCategories = ["positive", "negative", "improvement", "neutral"];
+    allCategories.forEach((category) => {
+      if (!groupedComments[category]) {
+        groupedComments[category] = [];
+      }
+    });
+
+    return {
+      skill: result.skill,
+      commentsByCategory: groupedComments,
+    };
+  }
+
+  // Get comments grouped by category for metric
+  async getCommentsGroupedByMetricId(metricId: number) {
+    const result = await this.getCommentsByMetricId(metricId);
+
+    const groupedComments = result.comments.reduce(
+      (grouped, comment) => {
+        const category = comment.category || "neutral";
+        if (!grouped[category]) {
+          grouped[category] = [];
+        }
+        grouped[category].push(comment);
+        return grouped;
+      },
+      {} as Record<string, typeof result.comments>
+    );
+
+    // Ensure all categories exist even if empty
+    const allCategories = ["positive", "negative", "improvement", "neutral"];
+    allCategories.forEach((category) => {
+      if (!groupedComments[category]) {
+        groupedComments[category] = [];
+      }
+    });
+
+    return {
+      skill: result.skill,
+      commentsByCategory: groupedComments,
+    };
+  }
+
+  // Get all skills in a group with comment counts (for management UI)
+  async getGroupSkillsWithComments(groupId: number) {
+    const groupTemplate = await this.groupTemplateRepository.findOne({
+      where: { group: { id: groupId } },
+      relations: [
+        "group",
+        "categories",
+        "categories.skills",
+        "categories.skills.prefilledComments",
+      ],
+    });
+
+    if (!groupTemplate) {
+      throw new Error("Group template not found");
+    }
+
+    const categoriesWithSkills = groupTemplate.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      skills: category.skills.map((skill) => {
+        const activeComments = skill.prefilledComments.filter(
+          (comment) => comment.isActive
+        );
+
+        // Count comments by category
+        const commentsByCategory = activeComments.reduce(
+          (counts, comment) => {
+            const cat = comment.category || "neutral";
+            counts[cat] = (counts[cat] || 0) + 1;
+            return counts;
+          },
+          {} as Record<string, number>
+        );
+
+        // Ensure all categories exist
+        ["positive", "negative", "improvement", "neutral"].forEach((cat) => {
+          if (!commentsByCategory[cat]) commentsByCategory[cat] = 0;
+        });
+
+        return {
+          id: skill.id,
+          name: skill.name,
+          isCustom: skill.isCustom,
+          commentCount: activeComments.length,
+          commentsByCategory,
+        };
+      }),
+    }));
+
+    return {
+      group: {
+        id: groupTemplate.group.id,
+        name: groupTemplate.group.name,
+      },
+      categories: categoriesWithSkills,
+    };
+  }
+
+  async addEvaluationNote(
+    eventId: number,
+    evaluationId: number,
+    evaluatorId: number,
+    note: string
+  ): Promise<EvaluationResult> {
+    try {
+      return this.dataSource.transaction(async (transactionalEntityManager) => {
+        // Find the evaluation result
+        const evaluation = await transactionalEntityManager.findOne(
+          EvaluationResult,
+          {
+            where: {
+              id: evaluationId,
+              event: { id: eventId },
+              evaluator: { id: evaluatorId },
+            },
+            relations: ["event", "player", "evaluator", "metric"],
+          }
+        );
+
+        if (!evaluation) {
+          throw new Error("Evaluation result not found or access denied");
+        }
+
+        // Check if note already exists
+        if (evaluation.note && evaluation.note.trim() !== "") {
+          throw new Error(
+            "Note already exists. Use update endpoint to modify it."
+          );
+        }
+
+        // Add the note
+        evaluation.note = note;
+        evaluation.updated_at = new Date();
+
+        const savedEvaluation =
+          await transactionalEntityManager.save(evaluation);
+        return savedEvaluation;
+      });
+    } catch (error) {
+      Logger.error("Error adding evaluation note:", error);
+      throw error;
+    }
+  }
+
+  async updateEvaluationNote(
+    eventId: number,
+    evaluationId: number,
+    evaluatorId: number,
+    note: string
+  ): Promise<EvaluationResult> {
+    try {
+      return this.dataSource.transaction(async (transactionalEntityManager) => {
+        // Find the evaluation result
+        const evaluation = await transactionalEntityManager.findOne(
+          EvaluationResult,
+          {
+            where: {
+              id: evaluationId,
+              event: { id: eventId },
+              evaluator: { id: evaluatorId },
+            },
+            relations: ["event", "player", "evaluator", "metric"],
+          }
+        );
+
+        if (!evaluation) {
+          throw new Error("Evaluation result not found or access denied");
+        }
+
+        // Check if note exists
+        if (!evaluation.note || evaluation.note.trim() === "") {
+          throw new Error(
+            "No note exists to update. Use add endpoint to create a note."
+          );
+        }
+
+        // Update the note
+        evaluation.note = note;
+        evaluation.updated_at = new Date();
+
+        const savedEvaluation =
+          await transactionalEntityManager.save(evaluation);
+        return savedEvaluation;
+      });
+    } catch (error) {
+      Logger.error("Error updating evaluation note:", error);
+      throw error;
+    }
+  }
+
+  async deleteEvaluationNote(
+    eventId: number,
+    evaluationId: number,
+    evaluatorId: number
+  ): Promise<EvaluationResult> {
+    try {
+      return this.dataSource.transaction(async (transactionalEntityManager) => {
+        // Find the evaluation result
+        const evaluation = await transactionalEntityManager.findOne(
+          EvaluationResult,
+          {
+            where: {
+              id: evaluationId,
+              event: { id: eventId },
+              evaluator: { id: evaluatorId },
+            },
+            relations: ["event", "player", "evaluator", "metric"],
+          }
+        );
+
+        if (!evaluation) {
+          throw new Error("Evaluation result not found or access denied");
+        }
+
+        // Check if note exists
+        if (!evaluation.note || evaluation.note.trim() === "") {
+          throw new Error("No note exists to delete");
+        }
+
+        // Delete the note
+        evaluation.note = '';
+        evaluation.updated_at = new Date();
+
+        const savedEvaluation =
+          await transactionalEntityManager.save(evaluation);
+        return savedEvaluation;
+      });
+    } catch (error) {
+      Logger.error("Error deleting evaluation note:", error);
+      throw error;
+    }
+  }
+
+  async getEvaluationNote(
+    eventId: number,
+    evaluationId: number,
+    evaluatorId: number
+  ): Promise<EvaluationResult> {
+    try {
+      const evaluation = await this.evaluationResultRepository.findOne({
+        where: {
+          id: evaluationId,
+          event: { id: eventId },
+          evaluator: { id: evaluatorId },
+        },
+        relations: ["event", "player", "evaluator", "metric"],
+      });
+
+      if (!evaluation) {
+        throw new Error("Evaluation result not found or access denied");
+      }
+
+      return evaluation;
+    } catch (error) {
+      Logger.error("Error getting evaluation note:", error);
+      throw error;
+    }
   }
 }

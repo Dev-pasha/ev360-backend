@@ -33,6 +33,8 @@ export class GroupController {
 
       const { name, description, logo, templateId } = req.body;
 
+      console.log("Create group request body: ", req.body);
+
       // Create group
       const group = await this.groupService.createGroup(req.user.id, {
         name,
@@ -53,6 +55,14 @@ export class GroupController {
     }
   };
 
+  HealthCheck = async (req: Request, res: Response): Promise<void> => {
+
+    console.log(req.body);
+
+
+    res.json({ message: "Group service is healthy!" });
+  };
+
   GetUserGroups = async (req: Request, res: Response): Promise<void> => {
     try {
       if (!req.user) {
@@ -60,8 +70,11 @@ export class GroupController {
         return;
       }
 
+      console.log("Get user groups request body: ", JSON.stringify(req.body , null, 2));
+      console.log("Get user groups request: ", req.user.id);
+
       // Get user's groups
-      const groups = await this.groupService.getUserGroups(req.user.id);
+      const groups = await this.groupService.getUserGroups(Number(req.user.id));
 
       res.json(
         successResponse({
@@ -79,10 +92,11 @@ export class GroupController {
 
   GetGroupById = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { groupId } = req.params;
 
+      console.log("Get group by ID request: ", req.params);
       // Get group
-      const group = await this.groupService.getGroupById(parseInt(id));
+      const group = await this.groupService.getGroupById(parseInt(groupId));
 
       res.json(
         successResponse({

@@ -366,7 +366,7 @@ export class PlayerListService {
         .map((p) => p.primary_position?.name)
         .filter(Boolean);
       const jerseyColors = players.map((p) => p.jersey_colour).filter(Boolean);
-      const jerseyNumbers = players.map((p) => p.number).filter(Boolean);
+      const jerseyNumbers = players.map((p) => p.number).filter((n): n is number => n !== undefined);
       const categories = players
         .map((p) => p.categories.map((c) => c.name))
         .flat()

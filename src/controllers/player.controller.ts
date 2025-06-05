@@ -209,6 +209,35 @@ export class PlayerController {
     }
   };
 
+  GetCategoriesByGroup = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res
+          .status(400)
+          .json(errorResponse("Categories Get failed", 400, errors));
+        return;
+      }
+
+      const { groupId } = req.params;
+
+      const { categories, positions } = await this.playerService.getCategoriesandPositionsByGroup(+groupId);
+
+      res.status(200).json(
+        successResponse({
+          message: "Categories retrieved successfully",
+          categories,
+          positions,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in getting categories: ", error);
+      res
+        .status(400)
+        .json(errorResponse("Failed to get categories", 400, error));
+    }
+  };
+
   // AssignPlayer = async (req: Request, res: Response): Promise<void> => {
   //   const errors = validationResult(req);
   //   if (!errors.isEmpty()) {

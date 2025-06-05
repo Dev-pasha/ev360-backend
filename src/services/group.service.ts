@@ -5,12 +5,16 @@ import { User } from "../entities/user.entity";
 import { Role } from "../entities/role.entity";
 import { UserGroupRole } from "../entities/user-group-role.entity";
 import Logger from "../config/logger";
-import { DataSource } from "typeorm";
+import { DataSource, In } from "typeorm";
 import { GroupTemplateService } from "./group-template.service";
 import authConfig from "../config/auth";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { EmailService } from "./email.service";
+import {
+  Subscription,
+  SubscriptionStatus,
+} from "../entities/subscription.entity";
 
 export class GroupService {
   private userRepository;
@@ -18,6 +22,7 @@ export class GroupService {
   private groupRepository;
   private userGroupRoleRepository;
   private emailService: EmailService;
+  private subscriptionRepository;
 
   constructor(private dataSource: DataSource = AppDataSource) {
     this.userRepository = this.dataSource.getRepository(User);
@@ -25,6 +30,7 @@ export class GroupService {
     this.roleRepository = this.dataSource.getRepository(Role);
     this.userGroupRoleRepository = this.dataSource.getRepository(UserGroupRole);
     this.emailService = new EmailService();
+    this.subscriptionRepository = this.dataSource.getRepository(Subscription);
   }
 
   async createGroup(
@@ -44,9 +50,27 @@ export class GroupService {
         throw new Error("User not found");
       }
 
+      // ⭐ NEW: Check if user can create groups
+      const canCreateGroups = await this.canUserCreateGroups(userId);
+      if (!canCreateGroups) {
+        Logger.error(
+          `Create group error: User ${userId} doesn't have permission to create groups`
+        );
+        throw new Error("You don't have permission to create groups");
+      }
+
+      // ⭐ UPDATED: Find subscription (account owner's or tenant's)
+      const subscription = await this.findUserSubscription(userId);
+      if (!subscription) {
+        Logger.error(
+          `Create group error: No active subscription found for user ${userId}`
+        );
+        throw new Error("No active subscription found");
+      }
+
       // Find owner role
       const ownerRole = await this.roleRepository.findOne({
-        where: { name: "Owner" },
+        where: { name: "Owner" }, // Note: you had "Owner" vs "owner" - make sure case matches
       });
       if (!ownerRole) {
         Logger.error("Create group error: Owner role not found");
@@ -57,12 +81,13 @@ export class GroupService {
       const group = this.groupRepository.create({
         name: groupData.name,
         description: groupData.description,
+        subscription_id: subscription.id, // ⭐ FIXED: Always use subscription.id
         // logo: groupData.logo
       });
 
       const savedGroup = await this.groupRepository.save(group);
 
-      // Assign owner role to user
+      // Assign owner role to user (creator becomes group owner)
       const userGroupRole = this.userGroupRoleRepository.create({
         user,
         group: savedGroup,
@@ -79,6 +104,9 @@ export class GroupService {
         );
       }
 
+      Logger.info(
+        `Group created successfully: ${savedGroup.name} (id: ${savedGroup.id}) by user ${userId}`
+      );
       return savedGroup;
     } catch (error) {
       if (error instanceof Error) {
@@ -95,6 +123,12 @@ export class GroupService {
     try {
       const group = await this.groupRepository.findOne({
         where: { id: groupId },
+        relations: [
+          "userGroupRoles",
+          "userGroupRoles.user",
+          "userGroupRoles.role",
+          "subscription",
+        ],
       });
 
       if (!group) {
@@ -116,10 +150,28 @@ export class GroupService {
 
   async getUserGroups(userId: number) {
     try {
+
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        Logger.error(`Get user groups error: User not found (id: ${userId})`);
+        throw new Error("User not found");
+      }
+
+
       const userGroupRoles = await this.userGroupRoleRepository.find({
         where: { user: { id: userId } },
         relations: ["group", "role"],
+        order: {
+          group: {
+            name: "ASC",
+          },
+        },
       });
+
+      console.log("User Group Roles: ", userGroupRoles);
 
       return userGroupRoles.map((ugr) => ({
         id: ugr.group.id,
@@ -790,10 +842,7 @@ export class GroupService {
     }
   }
 
-
-  async getEvaluatorsByGroup(
-    groupId: number
-  ): Promise<User[]> {
+  async getEvaluatorsByGroup(groupId: number): Promise<User[]> {
     try {
       // Find all user-group-role associations for the group
       const userGroupRoles = await this.userGroupRoleRepository.find({
@@ -817,5 +866,47 @@ export class GroupService {
       }
     }
   }
-  
+
+  private async canUserCreateGroups(userId: number): Promise<boolean> {
+    // Check if user is account owner
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (user?.is_account_owner) {
+      return true;
+    }
+
+    // Check if user has admin role in any group
+    const adminRole = await this.userGroupRoleRepository.findOne({
+      where: {
+        user: { id: userId },
+        role: { name: "Admin" }, // Adjust role name as needed
+      },
+    });
+
+    return !!adminRole;
+  }
+
+  // ⭐ NEW: Helper method to find user's subscription
+  private async findUserSubscription(
+    userId: number
+  ): Promise<Subscription | null> {
+    // Option 1: User is account owner (has own subscription)
+    const ownSubscription = await this.subscriptionRepository.findOne({
+      where: {
+        user: { id: userId },
+        status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL]),
+      },
+    });
+
+    if (ownSubscription) {
+      return ownSubscription;
+    }
+
+    // Option 2: User is member of a group, use that subscription
+    const userGroupRole = await this.userGroupRoleRepository.findOne({
+      where: { user: { id: userId } },
+      relations: ["group", "group.subscription"],
+    });
+
+    return userGroupRole?.group?.subscription || null;
+  }
 }

@@ -21,7 +21,7 @@ const groupTemplateController = new GroupTemplateController();
 router.post(
   "/:groupId",
   authMiddleware,
-  requirePermission("create_events") as RequestHandler,
+  // requirePermission("create_events") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -75,7 +75,7 @@ router.post(
 router.put(
   "/:groupId/:eventId",
   authMiddleware,
-  requirePermission("update_events") as RequestHandler,
+  // requirePermission("update_events") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -113,7 +113,7 @@ router.put(
 router.get(
   "/:groupId/all",
   authMiddleware,
-  requirePermission("view_events") as RequestHandler,
+  // requirePermission("view_events") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -154,7 +154,7 @@ router.get(
 router.get(
   "/:groupId",
   authMiddleware,
-  requirePermission("view_events") as RequestHandler,
+  // requirePermission("view_events") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -190,7 +190,7 @@ router.get(
 router.put(
   "/:groupId/:eventId/check-in/players",
   authMiddleware,
-  requirePermission("check_in_players") as RequestHandler,
+  // requirePermission("check_in_players") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -230,7 +230,7 @@ router.put(
 router.post(
   "/:eventId/players",
   authMiddleware,
-  requirePermission("update_events") as RequestHandler,
+  // requirePermission("update_events") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -255,7 +255,7 @@ router.post(
 router.delete(
   "/:eventId/players",
   authMiddleware,
-  requirePermission("update_events") as RequestHandler,
+  // requirePermission("update_events") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -280,7 +280,7 @@ router.delete(
 router.post(
   "/:eventId/evaluators",
   authMiddleware,
-  requirePermission("manage_evaluators") as RequestHandler,
+  // requirePermission("manage_evaluators") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -302,7 +302,7 @@ router.post(
 router.put(
   "/:eventId/evaluators/status",
   authMiddleware,
-  requirePermission("manage_evaluators") as RequestHandler,
+  // requirePermission("manage_evaluators") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -328,7 +328,7 @@ router.put(
 router.post(
   "/:eventId/:groupId/evaluate",
   authMiddleware,
-  requirePermission("submit_evaluations") as RequestHandler,
+  // requirePermission("submit_evaluations") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -368,7 +368,7 @@ router.post(
 router.get(
   "/:eventId/:groupId/results",
   authMiddleware,
-  requirePermission("view_evaluations") as RequestHandler,
+  // requirePermission("view_evaluations") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -402,7 +402,7 @@ router.get(
 router.delete(
   "/:eventId",
   authMiddleware,
-  requirePermission("delete_events") as RequestHandler,
+  // requirePermission("delete_events") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -420,7 +420,7 @@ router.delete(
 router.put(
   "/:groupId/:eventId/lock",
   authMiddleware,
-  requirePermission("manage_events") as RequestHandler,
+  // requirePermission("manage_events") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -442,7 +442,7 @@ router.put(
 router.get(
   "/:eventId/progress",
   authMiddleware,
-  requirePermission("view_evaluations") as RequestHandler,
+  // requirePermission("view_evaluations") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -461,7 +461,7 @@ router.get(
 router.get(
   "/:eventId/sync-evaluators",
   authMiddleware,
-  requirePermission("manage_evaluators") as RequestHandler,
+  // requirePermission("manage_evaluators") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -480,7 +480,7 @@ router.get(
 router.get(
   "/:eventId/sync-skills",
   authMiddleware,
-  requirePermission("manage_skills") as RequestHandler,
+  // requirePermission("manage_skills") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -498,7 +498,7 @@ router.get(
 router.post(
   "/:eventId/evaluations/:evaluationId/notes",
   authMiddleware,
-  requirePermission("submit_evaluations") as RequestHandler,
+  // requirePermission("submit_evaluations") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -526,7 +526,7 @@ router.post(
 router.put(
   "/:eventId/evaluations/:evaluationId/notes",
   authMiddleware,
-  requirePermission("submit_evaluations") as RequestHandler,
+  // requirePermission("submit_evaluations") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -554,7 +554,7 @@ router.put(
 router.delete(
   "/:eventId/evaluations/:evaluationId/notes",
   authMiddleware,
-  requirePermission("submit_evaluations") as RequestHandler,
+  // requirePermission("submit_evaluations") as RequestHandler,
   [
     param("eventId")
       .notEmpty()
@@ -576,7 +576,7 @@ router.delete(
 router.get(
   "/:eventId/evaluations/:evaluationId/notes",
   authMiddleware,
-  requirePermission("view_evaluations") as RequestHandler,
+  // requirePermission("view_evaluations") as RequestHandler,
   [
     param("eventId")
       .notEmpty()

@@ -19,6 +19,8 @@ import * as jwt from "jsonwebtoken";
 import authConfig from "../config/auth";
 import { PlayerList } from "../entities/player-list.entity";
 import { EmailService } from "./email.service";
+import { UserGroupRole } from "../entities/user-group-role.entity";
+import { Role } from "../entities/role.entity";
 
 interface TokenPayload {
   playerId: number;
@@ -650,7 +652,7 @@ export class PlayerService {
           };
 
           const token = jwt.sign(payload, authConfig.jwtSecret, {
-            expiresIn: Number(authConfig.jwtExpiresIn) || "5h",
+            expiresIn: Number(authConfig.jwtExpiresIn) || "5000h",
           });
 
           console.log("Token generated for player ID:", savedPlayer.id);
@@ -1136,97 +1138,230 @@ export class PlayerService {
   }
 
   async createPlayerAccount(password: string, token: string): Promise<void> {
+  try {
+    // Validate and decode token
+    let decodedToken: TokenPayload;
     try {
-      // Validate and decode token
-      let decodedToken: TokenPayload;
-      try {
-        decodedToken = jwt.verify(token, authConfig.jwtSecret) as TokenPayload;
+      decodedToken = jwt.verify(token, authConfig.jwtSecret) as TokenPayload;
 
-        // Validate token type
-        if (decodedToken.type !== "player-login") {
-          throw new Error("Invalid token type");
-        }
-      } catch (jwtError) {
-        throw new Error(`Invalid or expired token`);
+      // Validate token type
+      if (decodedToken.type !== "player-login") {
+        throw new Error("Invalid token type");
       }
-
-      const { playerId, groupId } = decodedToken;
-
-      // Find player with validation
-      const player = await this.playerRepository.findOne({
-        where: {
-          id: playerId,
-          group: { id: groupId },
-        },
-        relations: ["user"], // Important to check if player already has a user
-      });
-
-      if (!player) {
-        throw new Error("Player not found or belongs to a different group");
-      }
-
-      // Check if player already has a user account
-      if (player.user) {
-        throw new Error("Player already has a user account");
-      }
-
-      if (!player.email) {
-        throw new Error("Player must have an email to create an account");
-      }
-
-      // Validate email in token (if included)
-      if (decodedToken.email && decodedToken.email !== player.email) {
-        throw new Error("Token email does not match player email");
-      }
-
-      // Check if a user with this email already exists
-      const existingUser = await this.userRepository.findOne({
-        where: { email: player.email },
-      });
-
-      // Validate password
-      if (!password || password.length < 8) {
-        throw new Error("Password must be at least 8 characters");
-      }
-
-      await this.dataSource.transaction(async (transactionalEntityManager) => {
-        const playerRepo = transactionalEntityManager.getRepository(Player);
-        const userRepo = transactionalEntityManager.getRepository(User);
-
-        if (existingUser) {
-          // Link existing user to player
-          player.user = existingUser;
-          await playerRepo.save(player);
-        } else {
-          // Create new user
-          const passwordHash = await bcrypt.hash(password, 12);
-
-          const user = userRepo.create({
-            email: player.email,
-            passwordHash,
-            firstName: player.first_name,
-            lastName: player.last_name,
-            emailVerified: false,
-          });
-
-          const savedUser = await userRepo.save(user);
-
-          // Link user to player
-          player.user = savedUser;
-          await playerRepo.save(player);
-        }
-      });
-
-      // Optionally: Invalidate the token after use for better security
-      // await this.invalidateToken(token);
-    } catch (error) {
-      // Log the error for debugging
-      console.error(`Error creating player account:`, error);
-
-      // Throw with consistent error messaging
-      throw new Error(`Failed to create player account`);
+    } catch (jwtError) {
+      throw new Error(`Invalid or expired token`);
     }
+
+    const { playerId, groupId } = decodedToken;
+
+    // Find player with validation
+    const player = await this.playerRepository.findOne({
+      where: {
+        id: playerId,
+        group: { id: groupId },
+      },
+      relations: ["user", "group"], // Include group relation
+    });
+
+    if (!player) {
+      throw new Error("Player not found or belongs to a different group");
+    }
+
+    // Check if player already has a user account
+    if (player.user) {
+      throw new Error("Player already has a user account");
+    }
+
+    if (!player.email) {
+      throw new Error("Player must have an email to create an account");
+    }
+
+    // Validate email in token (if included)
+    if (decodedToken.email && decodedToken.email !== player.email) {
+      throw new Error("Token email does not match player email");
+    }
+
+    // Check if player is archived
+    if (player.archived) {
+      throw new Error("Cannot create account for archived player");
+    }
+
+    // Check if a user with this email already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email: player.email },
+    });
+
+    // Validate password
+    if (!password || password.length < 8) {
+      throw new Error("Password must be at least 8 characters");
+    }
+
+    await this.dataSource.transaction(async (transactionalEntityManager) => {
+      const playerRepo = transactionalEntityManager.getRepository(Player);
+      const userRepo = transactionalEntityManager.getRepository(User);
+      const userGroupRoleRepo = transactionalEntityManager.getRepository(UserGroupRole);
+      const roleRepo = transactionalEntityManager.getRepository(Role);
+
+      let userToAssign: User;
+
+      if (existingUser) {
+        // Link existing user to player
+        player.user = existingUser;
+        await playerRepo.save(player);
+        userToAssign = existingUser;
+      } else {
+        // Create new user
+        const passwordHash = await bcrypt.hash(password, 12);
+
+        const user = userRepo.create({
+          email: player.email,
+          passwordHash,
+          firstName: player.first_name,
+          lastName: player.last_name,
+          emailVerified: false,
+        });
+
+        const savedUser = await userRepo.save(user);
+
+        // Link user to player
+        player.user = savedUser;
+        await playerRepo.save(player);
+        userToAssign = savedUser;
+      }
+
+      // Find the Player role
+      const playerRole = await roleRepo.findOne({ 
+        where: { name: 'Player' } 
+      });
+
+      if (!playerRole) {
+        throw new Error('Player role not found in system');
+      }
+
+      // Check if UserGroupRole already exists (in case of existing user)
+      const existingUserGroupRole = await userGroupRoleRepo.findOne({
+        where: {
+          user: { id: userToAssign.id },
+          group: { id: player.group.id },
+          role: { id: playerRole.id }
+        }
+      });
+
+      if (!existingUserGroupRole) {
+        // Create UserGroupRole entry - assign Player role in their group
+        const userGroupRole = userGroupRoleRepo.create({
+          user: userToAssign,
+          group: player.group,
+          role: playerRole
+        });
+
+        await userGroupRoleRepo.save(userGroupRole);
+      }
+    });
+
+    // Optionally: Invalidate the token after use for better security
+    // await this.invalidateToken(token);
+  } catch (error) {
+    // Log the error for debugging
+    console.error(`Error creating player account:`, error);
+
+    // Throw with consistent error messaging
+    throw new Error(`Failed to create player account: ${error}`);
   }
+}
+
+  // async createPlayerAccount(password: string, token: string): Promise<void> {
+  //   try {
+  //     // Validate and decode token
+  //     let decodedToken: TokenPayload;
+  //     try {
+  //       decodedToken = jwt.verify(token, authConfig.jwtSecret) as TokenPayload;
+
+  //       // Validate token type
+  //       if (decodedToken.type !== "player-login") {
+  //         throw new Error("Invalid token type");
+  //       }
+  //     } catch (jwtError) {
+  //       throw new Error(`Invalid or expired token`);
+  //     }
+
+  //     const { playerId, groupId } = decodedToken;
+
+  //     // Find player with validation
+  //     const player = await this.playerRepository.findOne({
+  //       where: {
+  //         id: playerId,
+  //         group: { id: groupId },
+  //       },
+  //       relations: ["user"], // Important to check if player already has a user
+  //     });
+
+  //     if (!player) {
+  //       throw new Error("Player not found or belongs to a different group");
+  //     }
+
+  //     // Check if player already has a user account
+  //     if (player.user) {
+  //       throw new Error("Player already has a user account");
+  //     }
+
+  //     if (!player.email) {
+  //       throw new Error("Player must have an email to create an account");
+  //     }
+
+  //     // Validate email in token (if included)
+  //     if (decodedToken.email && decodedToken.email !== player.email) {
+  //       throw new Error("Token email does not match player email");
+  //     }
+
+  //     // Check if a user with this email already exists
+  //     const existingUser = await this.userRepository.findOne({
+  //       where: { email: player.email },
+  //     });
+
+  //     // Validate password
+  //     if (!password || password.length < 8) {
+  //       throw new Error("Password must be at least 8 characters");
+  //     }
+
+  //     await this.dataSource.transaction(async (transactionalEntityManager) => {
+  //       const playerRepo = transactionalEntityManager.getRepository(Player);
+  //       const userRepo = transactionalEntityManager.getRepository(User);
+
+  //       if (existingUser) {
+  //         // Link existing user to player
+  //         player.user = existingUser;
+  //         await playerRepo.save(player);
+  //       } else {
+  //         // Create new user
+  //         const passwordHash = await bcrypt.hash(password, 12);
+
+  //         const user = userRepo.create({
+  //           email: player.email,
+  //           passwordHash,
+  //           firstName: player.first_name,
+  //           lastName: player.last_name,
+  //           emailVerified: false,
+  //         });
+
+  //         const savedUser = await userRepo.save(user);
+
+  //         // Link user to player
+  //         player.user = savedUser;
+  //         await playerRepo.save(player);
+  //       }
+  //     });
+
+  //     // Optionally: Invalidate the token after use for better security
+  //     // await this.invalidateToken(token);
+  //   } catch (error) {
+  //     // Log the error for debugging
+  //     console.error(`Error creating player account:`, error);
+
+  //     // Throw with consistent error messaging
+  //     throw new Error(`Failed to create player account`);
+  //   }
+  // }
 
   async getPlayersByGroup(groupId: number): Promise<Player[]> {
     try {

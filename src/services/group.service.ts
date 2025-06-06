@@ -490,8 +490,35 @@ export class GroupService {
         }
       }
 
-      // Remove user from group
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        Logger.error(`Remove user from group error: User not found (id: ${userId})`);
+        throw new Error("User not found");
+      }
+
+      // remove the user and its associated group role
       await this.userGroupRoleRepository.remove(userGroupRole);
+      Logger.info(
+        `User removed from group successfully: userId=${userId}, groupId=${groupId}`
+      );
+
+      // If the user has no other group roles, we can delete the user
+      const remainingRoles = await this.userGroupRoleRepository.count({
+        where: { user: { id: userId } },
+      });
+
+      if (remainingRoles === 0) {
+        await this.userRepository.remove(user);
+        Logger.info(`User deleted successfully: userId=${userId}`);
+      }
+
+      Logger.info(
+        `User removed from group successfully: userId=${userId}, groupId=${groupId}`
+      );
+      
 
       return true;
     } catch (error) {

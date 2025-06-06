@@ -16,7 +16,7 @@ router.get(
   "/group/:groupId/overview",
   authMiddleware,
   [
-    requirePermission("view_group_stats") as RequestHandler,
+    // requirePermission("view_group_stats") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("dateRange").optional().isIn(['last30days', 'last3months', 'lastyear', 'custom']).withMessage("Invalid date range"),
     query("startDate").optional().isISO8601().withMessage("Start date must be valid ISO date"),
@@ -34,7 +34,7 @@ router.get(
   "/group/:groupId/demographics",
   authMiddleware,
   [
-    requirePermission("view_group_stats") as RequestHandler,
+    // requirePermission("view_group_stats") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("includeArchived").optional().isBoolean().withMessage("Include archived must be boolean"),
   ],
@@ -50,7 +50,7 @@ router.get(
   "/group/:groupId/activity",
   authMiddleware,
   [
-    requirePermission("view_group_stats") as RequestHandler,
+    // requirePermission("view_group_stats") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("dateRange").optional().isIn(['last30days', 'last3months', 'lastyear']).withMessage("Invalid date range"),
   ],
@@ -66,7 +66,7 @@ router.get(
   "/team/:teamId/overview",
   authMiddleware,
   [
-    requirePermission("view_team_stats") as RequestHandler,
+    // requirePermission("view_team_stats") as RequestHandler,
     param("teamId").isInt().withMessage("Team ID must be an integer"),
   ],
   statsController.GetTeamOverviewStats
@@ -81,7 +81,7 @@ router.get(
   "/system/health",
   authMiddleware,
   [
-    requirePermission("view_system_stats") as RequestHandler,
+    // requirePermission("view_system_stats") as RequestHandler,
   ],
   statsController.GetSystemHealthStats
 );

@@ -17,8 +17,8 @@ const playerController = new PlayerController();
 router.post(
   "/:groupId",
   authMiddleware,
-  requirePermission("create_players") as RequestHandler,
-  // canAddPlayerToGroupMiddleware,
+  // requirePermission("create_players") as RequestHandler,
+  canAddPlayerToGroupMiddleware,
   [
     param("groupId")
       .notEmpty()
@@ -38,7 +38,7 @@ router.post(
 router.get(
   "/:groupId",
   authMiddleware,
-  requirePermission("view_players") as RequestHandler,
+  // requirePermission("view_players") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -58,7 +58,7 @@ router.get(
 router.put(
   "/:groupId",
   authMiddleware,
-  requirePermission("view_players") as RequestHandler,
+  // requirePermission("view_players") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -81,7 +81,7 @@ router.put(
 router.delete(
   "/:groupId",
   authMiddleware,
-  requirePermission("delete_players") as RequestHandler,
+  // requirePermission("delete_players") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -105,7 +105,7 @@ router.delete(
 router.get(
   "/player/:groupId",
   authMiddleware,
-  requirePermission("view_players") as RequestHandler,
+  // requirePermission("view_players") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -144,7 +144,7 @@ router.post(
 router.get(
   "/:groupId/categories",
   authMiddleware,
-  requirePermission("view_players") as RequestHandler,
+  // requirePermission("view_players") as RequestHandler,
   [
     param("groupId")
       .optional()

@@ -15,7 +15,7 @@ const messageController = new MessageController();
 router.post(
   '/:groupId',
   authMiddleware,
-  requirePermission('send_messages') as RequestHandler,
+  // requirePermission('send_messages') as RequestHandler,
   [
     param('groupId')
       .notEmpty()
@@ -41,7 +41,7 @@ router.post(
 router.get(
   '/:groupId',
   authMiddleware,
-  requirePermission('view_messages') as RequestHandler,
+  // requirePermission('view_messages') as RequestHandler,
   [
     param('groupId')
       .notEmpty()
@@ -59,7 +59,7 @@ router.get(
 router.get(
   '/:groupId/:messageId',
   authMiddleware,
-  requirePermission('view_messages') as RequestHandler,
+  // requirePermission('view_messages') as RequestHandler,
   [
     param('groupId')
       .notEmpty()
@@ -81,7 +81,7 @@ router.get(
 router.get(
   '/:groupId/:messageId/status',
   authMiddleware,
-  requirePermission('view_messages') as RequestHandler,
+  // requirePermission('view_messages') as RequestHandler,
   [
     param('groupId')
       .notEmpty()

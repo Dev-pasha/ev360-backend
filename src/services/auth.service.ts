@@ -449,6 +449,31 @@ export class AuthService {
       throw new Error("User not found");
     }
 
+    // check for subscription if not found then found out he user whos is admin of the group and get the subscription from there
+    if (!user.subscriptions || user.subscriptions.length === 0) {
+      const groupRoles = await this.userGroupRoleRepository.find({
+        where: { user: { id: user.id } },
+        relations: ["group", "group.subscription", "group.subscription.plan"],
+      });
+
+      // Find the first active subscription from groups
+      const activeSubscription = groupRoles
+        .map((ugr) => ugr.group.subscription)
+        .find(
+          (sub) =>
+            sub &&
+            (sub.status === "active" || sub.status === "trial") &&
+            sub.plan
+        );
+
+      if (activeSubscription) {
+        user.subscriptions = [activeSubscription];
+      }
+    }
+
+    // console.log("User data:", user);
+
+
     // ⭐ OPTIONAL: Format the response for better frontend consumption
     const formattedUser = {
       ...user,

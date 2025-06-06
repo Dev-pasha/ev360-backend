@@ -11,7 +11,7 @@ const positionController = new PositionController();
 router.post(
   "/:groupId",
   authMiddleware,
-  requirePermission("manage_group_settings") as RequestHandler,
+  // requirePermission("manage_group_settings") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -30,7 +30,7 @@ router.post(
 router.get(
   "/:groupId",
   authMiddleware,
-  requirePermission("manage_group_settings") as RequestHandler,
+  // requirePermission("manage_group_settings") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -43,7 +43,7 @@ router.get(
 router.put(
   "/:groupId",
   authMiddleware,
-  requirePermission("manage_group_settings") as RequestHandler,
+  // requirePermission("manage_group_settings") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -63,7 +63,7 @@ router.put(
 router.delete(
   "/:groupId",
   authMiddleware,
-  requirePermission("manage_group_settings") as RequestHandler,
+  // requirePermission("manage_group_settings") as RequestHandler,
   [
     param("groupId")
       .optional()

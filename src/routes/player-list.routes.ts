@@ -16,7 +16,7 @@ const playerListController = new PlayerListController();
 router.post(
   "/:groupId",
   authMiddleware,
-  requirePermission("manage_player_lists") as RequestHandler,
+  // requirePermission("manage_player_lists") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -57,7 +57,7 @@ router.get(
 router.get(
   "/:groupId/:listId",
   authMiddleware,
-  requirePermission("view_player_lists") as RequestHandler,
+  // requirePermission("view_player_lists") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -79,7 +79,7 @@ router.get(
 router.put(
   "/:groupId/:listId",
   authMiddleware,
-  requirePermission("manage_player_lists") as RequestHandler,
+  // requirePermission("manage_player_lists") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -106,7 +106,7 @@ router.put(
 router.delete(
   "/:groupId/:listId",
   authMiddleware,
-  requirePermission("manage_player_lists") as RequestHandler,
+  // requirePermission("manage_player_lists") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -128,7 +128,7 @@ router.delete(
 router.post(
   "/:groupId/:listId/players",
   authMiddleware,
-  requirePermission("manage_player_lists") as RequestHandler,
+  // requirePermission("manage_player_lists") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -166,7 +166,7 @@ router.post(
 router.get(
   "/:groupId/player/:playerId",
   authMiddleware,
-  requirePermission("view_player_lists") as RequestHandler,
+  // requirePermission("view_player_lists") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -190,7 +190,7 @@ router.get(
 router.get(
   "/:groupId/filter/attributes",
   authMiddleware,
-  requirePermission("view_player_lists") as RequestHandler,
+  // requirePermission("view_player_lists") as RequestHandler,
   [
     param("groupId")
       .notEmpty()

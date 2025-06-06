@@ -15,7 +15,7 @@ const messageTemplateController = new MessageTemplateController();
 router.post(
   '/:groupId',
   authMiddleware,
-  requirePermission('manage_messages') as RequestHandler,
+  // requirePermission('manage_messages') as RequestHandler,
   [
     param('groupId')
       .notEmpty()
@@ -45,7 +45,7 @@ router.post(
 router.get(
   '/:groupId',
   authMiddleware,
-  requirePermission('view_messages') as RequestHandler,
+  // requirePermission('view_messages') as RequestHandler,
   [
     param('groupId')
       .notEmpty()
@@ -63,7 +63,7 @@ router.get(
 router.get(
   '/:groupId/:templateId',
   authMiddleware,
-  requirePermission('view_messages') as RequestHandler,
+  // requirePermission('view_messages') as RequestHandler,
   [
     param('groupId')
       .notEmpty()
@@ -85,7 +85,7 @@ router.get(
 router.put(
   '/:groupId/:templateId',
   authMiddleware,
-  requirePermission('manage_messages') as RequestHandler,
+  // requirePermission('manage_messages') as RequestHandler,
   [
     param('groupId')
       .notEmpty()
@@ -119,7 +119,7 @@ router.put(
 router.delete(
   '/:groupId/:templateId',
   authMiddleware,
-  requirePermission('manage_messages') as RequestHandler,
+  // requirePermission('manage_messages') as RequestHandler,
   [
     param('groupId')
       .notEmpty()

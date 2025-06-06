@@ -15,7 +15,7 @@ const reportController = new ReportController();
 router.post(
   "/:groupId/all-score",
   authMiddleware,
-  requirePermission("generate_reports") as RequestHandler,
+  // requirePermission("generate_reports") as RequestHandler,
   [
     param("groupId")
       .notEmpty()
@@ -38,7 +38,7 @@ router.post(
 router.post(
   "/individual",
   authMiddleware,
-  requirePermission("generate_reports") as RequestHandler,
+  // requirePermission("generate_reports") as RequestHandler,
   [param("groupId")],
   reportController.createIndividualReport
 );
@@ -51,7 +51,7 @@ router.post(
 router.get(
   "/:groupId/self-assessment/:eventId",
   authMiddleware,
-  requirePermission("view_reports") as RequestHandler,
+  // requirePermission("view_reports") as RequestHandler,
   [
     param("groupId")
       .notEmpty()

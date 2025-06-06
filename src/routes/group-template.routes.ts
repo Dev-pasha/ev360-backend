@@ -16,7 +16,7 @@ router.post(
   "/:groupId",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     query("templateId").isInt().withMessage("Template ID must be an integer"),
     param("groupId").isInt().withMessage("Group ID must be an integer"),
   ],
@@ -32,7 +32,7 @@ router.get(
   "/:groupId",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
   ],
   groupTemplateController.GetAssignedTemplate
@@ -47,7 +47,7 @@ router.get(
   "/:groupId/details",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -65,7 +65,7 @@ router.put(
   "/:groupTemplateId",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     query("groupTemplateId")
       .isInt()
       .withMessage("Group Template ID must be an integer"),
@@ -84,7 +84,7 @@ router.get(
   "/:groupId/categories",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -104,7 +104,7 @@ router.post(
   "/:groupId/categories",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -123,7 +123,7 @@ router.put(
   "/:groupId/categories",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -143,7 +143,7 @@ router.delete(
   "/:groupId/categories",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -163,7 +163,7 @@ router.get(
   "/:groupId/categories/skills",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -182,7 +182,7 @@ router.post(
   "/:groupId/categories/skills",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -202,7 +202,7 @@ router.put(
   "/:groupId/categories/skills",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -223,7 +223,7 @@ router.delete(
   "/:groupId/categories/skills",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -244,7 +244,7 @@ router.post(
   "/:groupId/categories/skills/metrics",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -265,7 +265,7 @@ router.post(
   "/:groupId/categories/skills/metrics",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -286,7 +286,7 @@ router.put(
   "/:groupId/categories/skills/metrics",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -307,7 +307,7 @@ router.delete(
   "/:groupId/categories/skills/metrics",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -326,7 +326,7 @@ router.get(
   "/:groupId/categories",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     query("groupTemplateId")
       .isInt()
@@ -346,7 +346,7 @@ router.get(
   "/:groupId/skills",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
   ],
   groupTemplateController.GetGroupSkillsWithComments
@@ -365,7 +365,7 @@ router.get(
   "/:groupId/:skillId/comments",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     param("skillId").isInt().withMessage("Skill ID must be an integer"),
   ],
@@ -383,7 +383,7 @@ router.post(
   "/:groupId/:skillId/comments",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     param("skillId").isInt().withMessage("Skill ID must be an integer"),
     body("comment").notEmpty().withMessage("Comment is required"),
@@ -403,7 +403,7 @@ router.put(
   "/:groupId/:skillId/comments/:commentId",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     param("skillId").isInt().withMessage("Skill ID must be an integer"),
     param("commentId").isInt().withMessage("Comment ID must be an integer"),
@@ -422,7 +422,7 @@ router.delete(
   "/:groupId/:skillId/comments/:commentId",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     param("skillId").isInt().withMessage("Skill ID must be an integer"),
     param("commentId").isInt().withMessage("Comment ID must be an integer"),
@@ -440,7 +440,7 @@ router.get(
   "/:groupId/:skillId/comments/grouped",
   authMiddleware,
   [
-    requirePermission("manage_group_settings") as RequestHandler,
+    // requirePermission("manage_group_settings") as RequestHandler,
     param("groupId").isInt().withMessage("Group ID must be an integer"),
     param("skillId").isInt().withMessage("Skill ID must be an integer"),
   ],

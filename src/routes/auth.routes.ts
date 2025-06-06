@@ -108,15 +108,15 @@ router.post(
 
 router.get("/profile", authMiddleware, authController.GetProfile);
 
-// router.put(
-//   "/profile",
-//   [
-//     body("firstName").notEmpty().withMessage("First name is required"),
-//     body("lastName").notEmpty().withMessage("Last name is required"),
-//   ],
-//   authMiddleware,
-//   authController.UpdateProfile
-// );
+router.put(
+  "/profile",
+  [
+    body("firstName").notEmpty().withMessage("First name is required"),
+    body("lastName").notEmpty().withMessage("Last name is required"),
+  ],
+  authMiddleware,
+  authController.UpdateProfile
+);
 
 router.get(
   "/invitation/:token",

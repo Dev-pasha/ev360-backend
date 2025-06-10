@@ -1,5 +1,3 @@
-
-
 // src/services/AuthService.ts
 import { AppDataSource } from "../config/database";
 import * as bcrypt from "bcrypt";
@@ -13,6 +11,7 @@ import { Group } from "../entities/group.entity";
 import { Role } from "../entities/role.entity";
 import { Subscription } from "../entities/subscription.entity";
 import { CookieOptions } from "express";
+import { Player } from "../entities/player.entity";
 
 interface UserData {
   email: string;
@@ -67,6 +66,7 @@ export class AuthService {
   private groupRepository;
   private roleRepository;
   private subscriptionRepository;
+  private playerRepository;
   private cookieConfig: CookieConfig = {
     accessToken: {
       httpOnly: true,
@@ -94,6 +94,7 @@ export class AuthService {
     this.roleRepository = this.dataSource.getRepository(Role);
     this.userGroupRoleRepository = this.dataSource.getRepository(UserGroupRole);
     this.subscriptionRepository = this.dataSource.getRepository(Subscription);
+    this.playerRepository = this.dataSource.getRepository(Player);
   }
 
   async validateUser(email: string, password: string): Promise<User | null> {
@@ -388,7 +389,9 @@ export class AuthService {
   async updateProfile(userId: number, data: Partial<User>): Promise<User> {
     try {
       await this.userRepository.update(userId, data);
-      const updatedUser = await this.userRepository.findOne({ where: { id: userId } });
+      const updatedUser = await this.userRepository.findOne({
+        where: { id: userId },
+      });
       if (!updatedUser) {
         throw new Error("User not found");
       }
@@ -398,8 +401,6 @@ export class AuthService {
       throw new Error("Profile update failed");
     }
   }
-
-
 
   async verifyEmail(token: string) {
     try {
@@ -472,7 +473,6 @@ export class AuthService {
     }
 
     // console.log("User data:", user);
-
 
     // ⭐ OPTIONAL: Format the response for better frontend consumption
     const formattedUser = {
@@ -598,6 +598,67 @@ export class AuthService {
         throw new Error("An unknown error occurred");
       }
     }
+  }
+
+  async getPlayerProfile(userId: number): Promise<any> {
+    // getting all the data present in the user table and player table
+
+
+    const _player = await this.playerRepository.findOne({
+      where: { user: { id: userId } },
+      relations: ["user", "user.userGroupRoles", "user.userGroupRoles.group"],
+    });
+
+    if (!_player) {
+      throw new Error("Player not found");
+    }
+
+    if (!_player.user) {
+      throw new Error("User not found for this player");
+    }
+
+    // player.user hasve two values pasword hash and refresh token
+    // we don't want to send these values to the client
+
+    _player.user.passwordHash = "";
+    _player.user.refreshToken = "";
+
+    return {
+      player: _player || null,
+    };
+  }
+
+  async updatePlayerProfile(
+    userId: number,
+    playerData: Partial<Player>
+  ): Promise<Player> {
+
+    //  if firstName or lastName is present in the playerData then update the user table as well
+    if (playerData.first_name || playerData.last_name) {
+      await this.userRepository.update(userId, {
+        firstName: playerData.first_name,
+        lastName: playerData.last_name,
+      });
+    }
+
+    Logger.info("Updating player profile for user ID:", userId);
+    Logger.info("Player data to update:", playerData);
+
+    // Find existing player profile
+    const player = await this.playerRepository.findOne({
+      where: { user: { id: userId } },
+      relations: ["user"],
+    });
+
+    if (!player) {
+      throw new Error("Player profile not found");
+    }
+
+    // Update player data
+    Object.assign(player, playerData);
+
+    // Save updated player profile
+    return this.playerRepository.save(player);
   }
 
   async completeRegistration(
@@ -906,4 +967,3 @@ export class AuthService {
     }
   }
 }
-

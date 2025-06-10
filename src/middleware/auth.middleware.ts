@@ -29,9 +29,9 @@ export function authMiddleware(
     let token: string | undefined;
 
 
-    console.log("Auth Middleware called");
+    // console.log("Auth Middleware called");
     // Check for Authorization header
-    console.log("Authorization Header: ", authHeader);
+    // console.log("Authorization Header: ", authHeader);
 
     if (authHeader) {
       // Get token from header
@@ -39,9 +39,9 @@ export function authMiddleware(
     } else if (req.cookies && req.cookies.accessToken) {
 
       console.log("No Authorization header found, checking cookies");
-
       // If no Authorization header, check for cookie
       token = req.cookies.accessToken;
+      // console.log("Token found in cookies: ", token);
     }
 
     if (!token) {
@@ -58,6 +58,7 @@ export function authMiddleware(
       return resolve();
     }
 
+    // console.log("Token payload: ", payload);
 
     // Attach user to request
     req.user = {

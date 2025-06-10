@@ -539,7 +539,13 @@ export class GroupService {
         relations: ["user", "role"],
       });
 
-      return userGroupRoles.map((ugr) => ({
+      // only return users with roles owner,admin,coach and evaluator only
+
+      const filteredUserGroupRoles = userGroupRoles.filter((ugr) =>
+        ["Owner", "Admin", "Coach", "Evaluator"].includes(ugr.role.name)
+      );
+
+      return filteredUserGroupRoles.map((ugr) => ({
         id: ugr.user.id,
         email: ugr.user.email,
         firstName: ugr.user.firstName,

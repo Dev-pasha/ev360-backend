@@ -124,6 +124,15 @@ router.get(
   authController.ValidateInvitation
 );
 
+router.get("/player-profile", authMiddleware, authController.GetPlayerProfile);
+
+router.put(
+  "/profile-update/:userId",
+  authMiddleware,
+  [param("userId").notEmpty().withMessage("User ID is required")],
+  authController.UpdatePlayerProfile
+);
+
 router.post(
   "/complete-registration",
   [

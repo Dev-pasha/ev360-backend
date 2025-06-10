@@ -234,7 +234,6 @@ export class PlayerListService {
         },
       });
 
-
       // Check for missing players
       const foundIds = players.map((p) => p.id);
       const missingIds = playerIdArray.filter((id) => !foundIds.includes(id));
@@ -336,6 +335,97 @@ export class PlayerListService {
       return lists;
     } catch (error) {
       console.error("Error fetching player lists by player:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all positions, jersey colors, jersey numbers and categories in a group
+   * @param groupId - The group ID
+   * @returns Object containing arrays of unique values
+   */
+  async getGroupAttributes(groupId: number): Promise<{
+    positions: string[];
+    jerseyColors: string[];
+    jerseyNumbers: number[];
+    categories: string[];
+  }> {
+    try {
+      const players = await this.playerRepository.find({
+        where: { group: { id: groupId } },
+        relations: ["primary_position", "secondary_position", "categories"],
+        select: [
+          "jersey_colour",
+          "number",
+          "primary_position",
+          "secondary_position",
+          "categories",
+        ],
+      });
+      const positions = players
+        .map((p) => p.primary_position?.name)
+        .filter(Boolean);
+      const jerseyColors = players.map((p) => p.jersey_colour).filter(Boolean);
+      const jerseyNumbers = players.map((p) => p.number).filter((n): n is number => n !== undefined);
+      const categories = players
+        .map((p) => p.categories.map((c) => c.name))
+        .flat()
+        .filter(Boolean);
+
+      return {
+        positions: Array.from(new Set(positions.map(String))),
+        jerseyColors: Array.from(new Set(jerseyColors.map(String))),
+        jerseyNumbers: Array.from(new Set(jerseyNumbers)),
+        categories: Array.from(new Set(categories)),
+      };
+    } catch (error) {
+      console.error("Error fetching group attributes:", error);
+      throw error;
+    }
+  }
+
+  // returns the list of player lists that are valid for the group
+  async validatePlayerListsForGroup(
+    groupId: number,
+    playerListIds: number[]
+  ): Promise<PlayerList[]> {
+    try {
+      // Find all player lists for the group
+      const playerLists = await this.playerListRepository.find({
+        where: {
+          id: In(playerListIds),
+          group: { id: groupId },
+        },
+      });
+
+      // Check if any lists were found
+      if (playerLists.length === 0) {
+        throw new EntityNotFoundError(PlayerList, {
+          ids: playerListIds,
+          groupId,
+        });
+      }
+
+      return playerLists;
+    } catch (error) {
+      console.error("Error validating player lists for group:", error);
+      throw error;
+    }
+  }
+
+  async getPlayersFromLists(playerListIds: number[]): Promise<Player[]> {
+    try {
+      // Find all player lists with the specified IDs
+      const playerLists = await this.playerListRepository.find({
+        where: { id: In(playerListIds) },
+        relations: ["players"],
+      });
+
+      // Extract players from the lists
+      const players = playerLists.flatMap((list) => list.players);
+      return players;
+    } catch (error) {
+      console.error("Error fetching players from lists:", error);
       throw error;
     }
   }

@@ -16,6 +16,7 @@ import { Team } from "./team.entity";
 import { Player } from "./player.entity";
 import { User } from "./user.entity";
 import { GroupTemplateSkill } from "./group-template-skill.entity";
+import { GroupTemplateMetric } from "./group-template-metric-score.entity";
 import { EventEvaluator } from "./event-evaluator.entity";
 import { EvaluationResult } from "./evaluation-result.entity";
 
@@ -90,6 +91,15 @@ export class Event {
   })
   skills!: GroupTemplateSkill[];
 
+
+  @ManyToMany(() => GroupTemplateMetric)
+  @JoinTable({
+    name: "event_metrics",
+    joinColumn: { name: "event_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "metric_id", referencedColumnName: "id" },
+  })
+  metrics!: GroupTemplateMetric[];
+  
   // Evaluators (accepted)
   @OneToMany(() => EventEvaluator, (eventEvaluator) => eventEvaluator.event)
   evaluators!: EventEvaluator[];

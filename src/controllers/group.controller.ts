@@ -33,6 +33,8 @@ export class GroupController {
 
       const { name, description, logo, templateId } = req.body;
 
+      console.log("Create group request body: ", req.body);
+
       // Create group
       const group = await this.groupService.createGroup(req.user.id, {
         name,
@@ -53,6 +55,14 @@ export class GroupController {
     }
   };
 
+  HealthCheck = async (req: Request, res: Response): Promise<void> => {
+
+    console.log(req.body);
+
+
+    res.json({ message: "Group service is healthy!" });
+  };
+
   GetUserGroups = async (req: Request, res: Response): Promise<void> => {
     try {
       if (!req.user) {
@@ -60,8 +70,11 @@ export class GroupController {
         return;
       }
 
+      console.log("Get user groups request body: ", JSON.stringify(req.body , null, 2));
+      console.log("Get user groups request: ", req.user.id);
+
       // Get user's groups
-      const groups = await this.groupService.getUserGroups(req.user.id);
+      const groups = await this.groupService.getUserGroups(Number(req.user.id));
 
       res.json(
         successResponse({
@@ -79,10 +92,11 @@ export class GroupController {
 
   GetGroupById = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { groupId } = req.params;
 
+      console.log("Get group by ID request: ", req.params);
       // Get group
-      const group = await this.groupService.getGroupById(parseInt(id));
+      const group = await this.groupService.getGroupById(parseInt(groupId));
 
       res.json(
         successResponse({
@@ -308,7 +322,6 @@ export class GroupController {
     }
   };
 
-
   DeleteGroup = async (req: Request, res: Response): Promise<void> => {
     try {
       console.log("Delete group request: ", req.query);
@@ -336,19 +349,25 @@ export class GroupController {
       if (!errors.isEmpty()) {
         res
           .status(400)
-          .json(errorResponse("Failed to change user role in group", 400, errors));
+          .json(
+            errorResponse("Failed to change user role in group", 400, errors)
+          );
         return;
       }
 
       const { groupId, userId } = req.params;
       const { roleId } = req.body;
+      // console.log("Change user role in group request: ", req.body);
+      // console.log("Change user role in group request: ", req.params);
 
       // Change user role in group
-      await this.groupService.changeUserRoleInGroup(
+      const response  = await this.groupService.changeUserRoleInGroup(
         parseInt(groupId),
         parseInt(userId),
         parseInt(roleId)
       );
+
+      // console.log("Change user role in group response: ", response);
 
       res.json(successResponse("User role changed successfully"));
     } catch (error) {
@@ -358,4 +377,67 @@ export class GroupController {
         .json(errorResponse("Failed to change user role in group", 400, error));
     }
   };
+
+  CompleteRegistration = async (req: Request, res: Response): Promise<void> => {
+    try {
+      // Validate request
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res
+          .status(400)
+          .json(errorResponse("Failed to complete registration", 400, errors));
+        return;
+      }
+
+      const { token } = req.params;
+      const { firstName, lastName } = req.body;
+
+      const result = await this.groupService.completeRegistration(token, {
+        firstName,
+        lastName,
+      });
+
+      res.json(
+        successResponse({
+          message: "Registration completed successfully",
+          result,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in completing registration: ", error);
+      res
+        .status(400)
+        .json(errorResponse("Failed to complete registration", 400, error));
+    }
+  };
+
+
+  GetGroupCoaches = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      // Validate request
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json(errorResponse("Failed to get group coaches", 400, errors));
+        return;
+      }
+
+      const { groupId } = req.params;
+
+      // Get group coaches
+      const coaches = await this.groupService.getGroupCoaches(parseInt(groupId));
+
+      res.json(
+        successResponse({
+          message: "Group coaches retrieved successfully",
+          coaches,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in getting group coaches: ", error);
+      res.status(400).json(errorResponse("Failed to get group coaches", 400, error));
+    }
+  }
 }

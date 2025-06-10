@@ -3,6 +3,7 @@ import { body, param, query } from "express-validator";
 import { PlayerController } from "../controllers/player.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { requirePermission } from "../middleware/permission.middleware";
+import { canAddPlayerToGroupMiddleware } from "../middleware/subscription.middleware";
 
 const router = Router();
 const playerController = new PlayerController();
@@ -16,7 +17,8 @@ const playerController = new PlayerController();
 router.post(
   "/:groupId",
   authMiddleware,
-  requirePermission("create_players") as RequestHandler,
+  // requirePermission("create_players") as RequestHandler,
+  canAddPlayerToGroupMiddleware,
   [
     param("groupId")
       .notEmpty()
@@ -36,7 +38,7 @@ router.post(
 router.get(
   "/:groupId",
   authMiddleware,
-  requirePermission("view_players") as RequestHandler,
+  // requirePermission("view_players") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -56,7 +58,7 @@ router.get(
 router.put(
   "/:groupId",
   authMiddleware,
-  requirePermission("view_players") as RequestHandler,
+  // requirePermission("view_players") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -79,7 +81,7 @@ router.put(
 router.delete(
   "/:groupId",
   authMiddleware,
-  requirePermission("delete_players") as RequestHandler,
+  // requirePermission("delete_players") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -103,7 +105,7 @@ router.delete(
 router.get(
   "/player/:groupId",
   authMiddleware,
-  requirePermission("view_players") as RequestHandler,
+  // requirePermission("view_players") as RequestHandler,
   [
     param("groupId")
       .optional()
@@ -118,25 +120,38 @@ router.get(
 );
 
 /**
- * @route   POST /api/v1/player-group/:groupId/create-account
+ * @route   POST /api/v1/player-group/create-account
  * @desc    Assign player to a group
  * @access  Private
  *
  */
 
 router.post(
-  "/:groupId/create-account",
-  authMiddleware,
-  requirePermission("create_players") as RequestHandler,
+  "/create-account/:token",
   [
-    param("groupId")
-      .notEmpty()
-      .isInt()
-      .withMessage("Group ID must be an integer"),
-    query("token").notEmpty().withMessage("Token is required"),
+    param("token").notEmpty().withMessage("Token is required"),
     body("password").notEmpty(),
   ],
   playerController.CreatePlayerAccount
+);
+
+/**
+ * @route   GET /api/v1/player-group/:groupId/categories
+ * @desc    Get categories by group ID
+ * @access  Private
+ *
+ */
+router.get(
+  "/:groupId/categories",
+  authMiddleware,
+  // requirePermission("view_players") as RequestHandler,
+  [
+    param("groupId")
+      .optional()
+      .isInt()
+      .withMessage("Group ID must be an integer"),
+  ],
+  playerController.GetCategoriesByGroup
 );
 
 export default router;

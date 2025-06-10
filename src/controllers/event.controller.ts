@@ -60,10 +60,22 @@ export class EventController {
         return;
       }
 
-      const { eventId } = req.params;
+      const { eventId, groupId } = req.params;
       const eventData = req.body;
+      const updatedBy = req.user; // Assuming user is attached to request
 
-      const event = await this.eventService.updateEvent(+eventId, eventData);
+      console.log("🔍 [INPUT] Group ID:", groupId, "Type:", typeof groupId);
+      console.log("🔍 [INPUT] Event ID:", eventId, "Type:", typeof eventId);
+      console.log("🔍 [INPUT] Event Data:", eventData);
+
+      const event = await this.eventService.updateEvent(
+        +groupId,
+        +eventId,
+        eventData,
+        updatedBy
+      );
+
+      // console.log("Updated event: ", event);
 
       res.status(200).json(
         successResponse({
@@ -87,9 +99,9 @@ export class EventController {
    */
   getEvent = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { eventId } = req.params;
+      const { eventId, groupId } = req.params;
 
-      const event = await this.eventService.getEventById(+eventId);
+      const event = await this.eventService.getEventById(+eventId, +groupId);
 
       res.status(200).json(
         successResponse({
@@ -103,25 +115,72 @@ export class EventController {
     }
   };
 
+  getAllEvents = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { groupId } = req.params;
+
+      
+
+      console.log("🔍 [INPUT] Group ID:", groupId, "Type:", typeof groupId);
+
+      if (!groupId || isNaN(Number(groupId))) {
+        throw new Error(
+          `Invalid groupId: ${groupId}. Expected a valid number.`
+        );
+      }
+      const numericGroupId = Number(groupId);
+
+
+      const events = await this.eventService.getAllEvents(numericGroupId);
+
+      res.status(200).json(
+        successResponse({
+          message: "Events fetched successfully",
+          events,
+          count: events.length,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error in events fetching: ", error);
+      res.status(400).json(errorResponse("Events fetching failed", 400, error));
+    }
+  };
+
   /**
    * Get events for a group
    */
   getGroupEvents = async (req: Request, res: Response): Promise<void> => {
     try {
       const { groupId } = req.params;
+
+      console.log("🔍 [INPUT] Group ID:", groupId, "Type:", typeof groupId);
+
+      if (!groupId || isNaN(Number(groupId))) {
+        throw new Error(
+          `Invalid groupId: ${groupId}. Expected a valid number.`
+        );
+      }
+      const numericGroupId = Number(groupId);
+
+      console.log("Request filters: ", req.query);
       const filters = req.query;
 
-      const events = await this.eventService.getGroupEvents(+groupId, {
-        active: filters.active === "true",
-        event_type: filters.event_type ? +filters.event_type : undefined,
-        team_id: filters.team_id ? +filters.team_id : undefined,
-        start_date: filters.start_date
-          ? new Date(filters.start_date as string)
-          : undefined,
-        end_date: filters.end_date
-          ? new Date(filters.end_date as string)
-          : undefined,
-      });
+      const events = await this.eventService.getGroupEvents(
+        numericGroupId
+        //    {
+        //   active: filters.active === "true",
+        //   event_type: filters.event_type ? +filters.event_type : undefined,
+        //   team_id: filters.team_id ? +filters.team_id : undefined,
+        //   start_date: filters.start_date
+        //     ? new Date(filters.start_date as string)
+        //     : undefined,
+        //   end_date: filters.end_date
+        //     ? new Date(filters.end_date as string)
+        //     : undefined,
+        // }
+      );
+
+      // console.log("Fetched events: ", events);
 
       res.status(200).json(
         successResponse({
@@ -396,6 +455,8 @@ export class EventController {
       const { eventId } = req.params;
       const { locked } = req.body;
 
+      console.log(`Setting event ${eventId} locked status to ${locked}`);
+
       const event = await this.eventService.setEventLocked(+eventId, locked);
 
       res.status(200).json(
@@ -523,6 +584,52 @@ export class EventController {
           .status(400)
           .json(errorResponse("Failed to sync event skills", 400, error));
       }
+    }
+  };
+
+  checkInPlayer = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res
+          .status(400)
+          .json(errorResponse("Check-in player failed", 400, errors));
+        return;
+      }
+
+      const { eventId } = req.params;
+      const { playerId } = req.body;
+
+      // Normalize playerId to always be an array for the service
+      const playerIds = Array.isArray(playerId) ? playerId : [playerId];
+
+      const result = await this.eventService.checkInPlayers(
+        +eventId,
+        playerIds
+      );
+
+      // Create appropriate response message
+      const message =
+        playerIds.length === 1
+          ? "Player checked in successfully"
+          : `${playerIds.length} players checked in successfully`;
+
+      res.status(200).json(
+        successResponse({
+          message,
+          result,
+          playersProcessed: playerIds.length,
+        })
+      );
+    } catch (error) {
+      Logger.error("Error checking in player(s): ", error);
+
+      // More descriptive error message
+      const errorMessage = Array.isArray(req.body.playerId)
+        ? "Failed to check in players"
+        : "Failed to check in player";
+
+      res.status(400).json(errorResponse(errorMessage, 400, error));
     }
   };
 }

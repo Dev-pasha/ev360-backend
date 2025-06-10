@@ -40,16 +40,16 @@ export class PositionService {
     return await this.positionRepository.save(position);
   }
 
-  async getPositions(groupId?: number): Promise<Position[]> {
-    const postions = await this.positionRepository.find({
+ async getPositions(groupId: number): Promise<Position[]> {
+    const positions = await this.positionRepository.find({
       where: {
-        ...(groupId && { group: { id: groupId } }),
+        group: { id: groupId }
       },
-    //   relations: ["group"],
+      // relations: ["group"], // uncomment if you need group data
     });
 
-    return postions;
-  }
+    return positions;
+}
 
   async updatePosition(
     positionId: number,

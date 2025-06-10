@@ -24,6 +24,13 @@ export class PositionController {
 
       const { groupId } = req.params;
       const { name, description, is_active } = req.body;
+      console.log(
+        "CreatePosition",
+        groupId,
+        name,
+        description,
+        is_active
+      );
 
       // Create position
       const position = await this.positionService.createPosition(+groupId, {
@@ -48,7 +55,7 @@ export class PositionController {
 
   GetPositions = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { groupId } = req.query;
+      const { groupId } = req.params;
 
       // Get positions
       const positions = await this.positionService.getPositions(

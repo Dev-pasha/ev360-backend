@@ -108,10 +108,29 @@ router.post(
 
 router.get("/profile", authMiddleware, authController.GetProfile);
 
+router.put(
+  "/profile",
+  [
+    body("firstName").notEmpty().withMessage("First name is required"),
+    body("lastName").notEmpty().withMessage("Last name is required"),
+  ],
+  authMiddleware,
+  authController.UpdateProfile
+);
+
 router.get(
   "/invitation/:token",
   [param("token").notEmpty().withMessage("Token is required")],
   authController.ValidateInvitation
+);
+
+router.get("/player-profile", authMiddleware, authController.GetPlayerProfile);
+
+router.put(
+  "/profile-update/:userId",
+  authMiddleware,
+  [param("userId").notEmpty().withMessage("User ID is required")],
+  authController.UpdatePlayerProfile
 );
 
 router.post(

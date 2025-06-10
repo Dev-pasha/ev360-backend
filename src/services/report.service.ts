@@ -3,7 +3,7 @@ import { DataSource, In } from "typeorm";
 import { Report, ReportType } from "../entities/report.entity";
 import { ReportConfirmation } from "../entities/report-confirmation.entity";
 import { SelfAssessment } from "../entities/self-assessment.entity";
-import { Event } from "../entities/event.entity";
+import { Event, EventType } from "../entities/event.entity";
 import { Player } from "../entities/player.entity";
 import { User } from "../entities/user.entity";
 import { EvaluationResult } from "../entities/evaluation-result.entity";
@@ -12,6 +12,15 @@ import AppDataSource from "../config/database";
 
 export interface AllScoreReportResult {
   player_id: number;
+  player_info: {
+    id: number;
+    name: string;
+    player_number: string;
+    email: string;
+    date_of_birth: Date | null;
+    height: number | null;
+    weight: number | null;
+  };
   metric_scores: Array<{
     player_id: number;
     metric_id: number;
@@ -23,20 +32,29 @@ export interface AllScoreReportResult {
     rank: number;
     number_of_players: number;
     player_metric_rank: number;
+    metric_name: string;
+    skill_name: string;
+    category_name: string;
   }>;
   skill_scores: Array<{
     player_id: number;
     skill_id: number;
     category_id: number;
     average_value: number;
+    skill_name: string;
+    category_name: string;
   }>;
   category_scores: Array<{
     player_id: number;
     category_id: number;
     average_value: number;
+    category_name: string;
   }>;
   overall_score: number;
   comments: string[];
+  category_names: Record<number, string>;
+  skill_names: Record<number, string>;
+  metric_names: Record<number, string>;
 }
 
 export class ReportService {
@@ -65,25 +83,83 @@ export class ReportService {
    * Generate All Score Report
    */
   async generateAllScoreReport(
-    eventIds: number[],
-    evaluatorIds: number[]
+    eventIds: number[]
+    // evaluatorIds: number[]
   ): Promise<AllScoreReportResult[]> {
     try {
-      // Get all evaluation results for the specified events and evaluators
+      // Validate input
+      if (!eventIds || !Array.isArray(eventIds) || eventIds.length === 0) {
+        throw new Error("EventIds must be a non-empty array");
+      }
+
+      // Get all evaluation results for the specified events with player details and names
       const results = await this.evaluationResultRepository
         .createQueryBuilder("er")
         .leftJoinAndSelect("er.player", "player")
+        .leftJoinAndSelect("er.evaluator", "evaluator")
+        .leftJoinAndSelect("er.event", "event")
         .leftJoinAndSelect("er.metric", "metric")
-        .leftJoinAndSelect("metric.skill", "skill")
-        .leftJoinAndSelect("skill.category", "category")
-        .where("er.event_id IN (:...eventIds)", { eventIds })
-        .andWhere("er.evaluator_id IN (:...evaluatorIds)", { evaluatorIds })
+        .leftJoinAndSelect("metric.skill", "skill") // Join skill to get skill details
+        .leftJoinAndSelect("skill.category", "category") // Join category to get category details
+        .where("event.id IN (:...eventIds)", { eventIds })
         .getMany();
+
+      if (!results || results.length === 0) {
+        return [];
+      }
 
       // Group results by player
       const playerResults = new Map<number, any[]>();
+      const playerDetailsMap = new Map<number, any>();
+
+      // Maps to store names for categories, skills, and metrics
+      const categoryNamesMap = new Map<number, string>();
+      const skillNamesMap = new Map<number, string>();
+      const metricNamesMap = new Map<number, string>();
+
       results.forEach((result) => {
+        if (!result?.player?.id) {
+          return;
+        }
+
         const playerId = result.player.id;
+
+        // Store player details (will be the same for all results of this player)
+        if (!playerDetailsMap.has(playerId)) {
+          playerDetailsMap.set(playerId, {
+            id: result.player.id,
+            name: result.player.first_name + " " + result.player.last_name,
+            player_number: result.player.number,
+            email: result.player.email,
+            date_of_birth: result.player.date_of_birth,
+            height: result.player.height,
+            weight: result.player.weight,
+          });
+        }
+
+        // Store category, skill, and metric names from joined data
+        if (result.metric?.skill?.category) {
+          const categoryId = result.metric.skill.category.id;
+          const categoryName =
+            result.metric.skill.category.name ||
+            result.metric.skill.category.name ||
+            `Category ${categoryId}`;
+          categoryNamesMap.set(categoryId, categoryName);
+        }
+
+        if (result.metric?.skill) {
+          const skillId = result.metric.skill.id;
+          const skillName = result.metric.skill.name || `Skill ${skillId}`;
+          skillNamesMap.set(skillId, skillName);
+        }
+
+        if (result.metric) {
+          const metricId = result.metric.id;
+          const metricName = result.metric.name || `Metric ${metricId}`;
+          metricNamesMap.set(metricId, metricName);
+        }
+
+        // Group evaluation results
         if (!playerResults.has(playerId)) {
           playerResults.set(playerId, []);
         }
@@ -94,21 +170,66 @@ export class ReportService {
       const reportResults: AllScoreReportResult[] = [];
 
       for (const [playerId, playerEvaluations] of playerResults) {
-        const metricScores =
-          await this.calculateMetricScores(playerEvaluations);
-        const skillScores = await this.calculateSkillScores(metricScores);
-        const categoryScores = await this.calculateCategoryScores(skillScores);
-        const overallScore = await this.calculateOverallScore(categoryScores);
-        const comments = await this.aggregateComments(playerEvaluations);
+        try {
+          const metricScores =
+            await this.calculateMetricScores(playerEvaluations);
+          const skillScores = await this.calculateSkillScores(metricScores);
+          const categoryScores =
+            await this.calculateCategoryScores(skillScores);
+          const overallScore = await this.calculateOverallScore(categoryScores);
+          const comments = await this.aggregateComments(playerEvaluations);
 
-        reportResults.push({
-          player_id: playerId,
-          metric_scores: metricScores,
-          skill_scores: skillScores,
-          category_scores: categoryScores,
-          overall_score: overallScore,
-          comments: comments,
-        });
+          // Get player details from our map
+          const playerDetails = playerDetailsMap.get(playerId);
+
+          // Enhance metric scores with names
+          const enhancedMetricScores = metricScores.map((metric) => ({
+            ...metric,
+            metric_name:
+              metricNamesMap.get(metric.metric_id) ||
+              `Metric ${metric.metric_id}`,
+            skill_name:
+              skillNamesMap.get(metric.skill_id) || `Skill ${metric.skill_id}`,
+            category_name:
+              categoryNamesMap.get(metric.category_id) ||
+              `Category ${metric.category_id}`,
+          }));
+
+          // Enhance skill scores with names
+          const enhancedSkillScores = skillScores.map((skill) => ({
+            ...skill,
+            skill_name:
+              skillNamesMap.get(skill.skill_id) || `Skill ${skill.skill_id}`,
+            category_name:
+              categoryNamesMap.get(skill.category_id) ||
+              `Category ${skill.category_id}`,
+          }));
+
+          // Enhance category scores with names
+          const enhancedCategoryScores = categoryScores.map((category) => ({
+            ...category,
+            category_name:
+              categoryNamesMap.get(category.category_id) ||
+              `Category ${category.category_id}`,
+          }));
+
+          reportResults.push({
+            player_id: playerId,
+            player_info: playerDetails,
+            metric_scores: enhancedMetricScores,
+            skill_scores: enhancedSkillScores,
+            category_scores: enhancedCategoryScores,
+            overall_score: overallScore,
+            comments: comments,
+            // Add the name maps to the response for easy access in frontend
+            category_names: Object.fromEntries(categoryNamesMap),
+            skill_names: Object.fromEntries(skillNamesMap),
+            metric_names: Object.fromEntries(metricNamesMap),
+          });
+        } catch (playerError) {
+          Logger.error(`Error processing player ${playerId}:`, playerError);
+          continue;
+        }
       }
 
       // Rank players for each metric
@@ -287,7 +408,197 @@ export class ReportService {
     }
   }
 
-  
+  async getSelfAssessmentPlayerScores(eventId: number) {
+    // First verify it's a self-assessment event
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      select: ["id", "event_type"],
+    });
+
+    if (!event || event.event_type !== EventType.SELF_ASSESSMENT) {
+      throw new Error("Event is not a self-assessment type");
+    }
+
+    // Get evaluation results for self-assessment
+    const evaluationResults = await this.evaluationResultRepository
+      .createQueryBuilder("er")
+      .leftJoinAndSelect("er.player", "player")
+      .leftJoinAndSelect("er.evaluator", "evaluator")
+      .leftJoinAndSelect("er.metric", "metric")
+      .leftJoinAndSelect("er.event", "event")
+      .where("er.event = :eventId", { eventId })
+      .andWhere("event.event_type = :eventType", {
+        eventType: EventType.SELF_ASSESSMENT,
+      })
+      .andWhere("er.player = er.evaluator") // Self-assessment condition: player evaluates themselves
+      .getMany();
+
+    // Transform to your desired structure
+    const playerScoresMap = new Map();
+
+    evaluationResults.forEach((result) => {
+      const playerId = result.player.id;
+
+      if (!playerScoresMap.has(playerId)) {
+        playerScoresMap.set(playerId, {
+          player_id: playerId,
+          scores: [],
+        });
+      }
+
+      playerScoresMap.get(playerId).scores.push({
+        id: `${result.player.id}-${result.metric.id}-${result.event.id}-${result.evaluator.id}`,
+        value: result.score?.toString() || "0",
+        evaluation_event_id: result.event.id,
+        evaluator_id: result.evaluator.id,
+        metric_id: result.metric.id,
+        multi_score: result.choice_value, // Using choice_value as multi_score
+        player_id: result.player.id,
+        note: result.comment || "Nothing",
+        videos: [], // Since you don't have videos relation in EvaluationResult
+      });
+    });
+
+    return Array.from(playerScoresMap.values());
+  }
+
+  async getPlayerSelfAssessmentDetail(eventId: number, playerId: number) {
+    // First verify it's a self-assessment event
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      select: ["id", "event_type", "name", "event_datetime", "end_date"],
+      relations: ["metrics"], // Include metrics to get metric details
+    });
+
+    if (!event || event.event_type !== EventType.SELF_ASSESSMENT) {
+      throw new Error("Event is not a self-assessment type");
+    }
+
+    // Get player details (you might want to replace this with actual player repository call)
+    const player = await this.playerRepository.findOne({
+      where: { id: playerId },
+    });
+
+    if (!player) {
+      throw new Error("Player not found");
+    }
+
+    // Get evaluation results for this specific player in this event
+    const evaluationResults = await this.evaluationResultRepository
+      .createQueryBuilder("er")
+      .leftJoinAndSelect("er.player", "player")
+      .leftJoinAndSelect("er.evaluator", "evaluator")
+      .leftJoinAndSelect("er.metric", "metric")
+      .leftJoinAndSelect("er.event", "event")
+      .where("er.event = :eventId", { eventId })
+      .andWhere("er.player = :playerId", { playerId })
+      .andWhere("er.evaluator = :playerId", { playerId }) // Self-assessment condition
+      .andWhere("event.event_type = :eventType", {
+        eventType: EventType.SELF_ASSESSMENT,
+      })
+      .orderBy("er.created_at", "DESC") // Most recent first
+      .getMany();
+
+    if (evaluationResults.length === 0) {
+      throw new Error("Player not found in this self-assessment event");
+    }
+
+    // Calculate overall progress and statistics
+    const totalPossibleMetrics = event.metrics?.length || 0;
+    const completedMetrics = evaluationResults.length;
+    const progress =
+      totalPossibleMetrics > 0
+        ? Math.round((completedMetrics / totalPossibleMetrics) * 100)
+        : 0;
+
+    // Calculate average score
+    const scores = evaluationResults.map((result) =>
+      parseFloat(result.score?.toString() || "0")
+    );
+    const averageScore =
+      scores.length > 0
+        ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+        : 0;
+    const maxScore = Math.max(...scores, 0);
+    const minScore = Math.min(...scores, 5); // Default min to 5 if no scores
+
+    // Group metrics by category if you have categories, otherwise just return all
+    const metricScores = evaluationResults.map((result) => ({
+      metric_id: result.metric.id,
+      metric_name: result.metric.name || `Metric ${result.metric.id}`,
+      score: parseFloat(result.score?.toString() || "0"),
+      max_score: result.metric.max_value || 5, // Assuming max score of 5, adjust as needed
+      note: result.note || null,
+      comment: result.comment || null,
+      choice_value: result.choice_value || null,
+      attempt_number: result.attempt_number || 1,
+      evaluated_at: result.created_at,
+      updated_at: result.updated_at,
+    }));
+
+    // Get metrics that haven't been completed yet
+    const completedMetricIds = evaluationResults.map(
+      (result) => result.metric.id
+    );
+    const pendingMetrics =
+      event.metrics
+        ?.filter((metric) => !completedMetricIds.includes(metric.id))
+        .map((metric) => ({
+          metric_id: metric.id,
+          metric_name: metric.name || `Metric ${metric.id}`,
+          score: null,
+          max_score: metric.max_value || 5,
+          note: null,
+          comment: null,
+          choice_value: null,
+          attempt_number: 0,
+          evaluated_at: null,
+          updated_at: null,
+          status: "pending",
+        })) || [];
+
+    return {
+      // Event information
+      event: {
+        id: event.id,
+        name: event.name,
+        event_type: event.event_type,
+        start_date: event.event_datetime,
+        end_date: event.end_date,
+        total_metrics: totalPossibleMetrics,
+      },
+
+      // Player information
+      player: player,
+
+      // Assessment progress and statistics
+      assessment_summary: {
+        progress_percentage: progress,
+        completed_metrics: completedMetrics,
+        total_metrics: totalPossibleMetrics,
+        pending_metrics: totalPossibleMetrics - completedMetrics,
+        average_score: Math.round(averageScore * 100) / 100, // Round to 2 decimal places
+        highest_score: maxScore,
+        lowest_score: scores.length > 0 ? minScore : null,
+        last_updated: evaluationResults[0]?.updated_at || null,
+      },
+
+      // Detailed metric scores
+      metric_scores: metricScores,
+
+      // Pending metrics (not yet evaluated)
+      pending_metrics: pendingMetrics,
+
+      // Overall assessment status
+      status:
+        progress === 100
+          ? "completed"
+          : progress > 0
+            ? "in_progress"
+            : "not_started",
+    };
+  }
+
   // Helper methods
   private async calculateMetricScores(evaluations: any[]): Promise<any[]> {
     const metricGroups = new Map<number, any[]>();

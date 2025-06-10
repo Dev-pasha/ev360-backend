@@ -24,18 +24,28 @@ export function authMiddleware(
   next: NextFunction
 ): Promise<void> {
   return new Promise((resolve) => {
+    // First check Authorization header
     const authHeader = req.headers.authorization;
+    let token: string | undefined;
 
-    if (!authHeader) {
-      res.status(401).json({ message: "No token provided" });
-      return resolve();
+
+    // console.log("Auth Middleware called");
+    // Check for Authorization header
+    // console.log("Authorization Header: ", authHeader);
+
+    if (authHeader) {
+      // Get token from header
+      token = authHeader.split(" ")[1];
+    } else if (req.cookies && req.cookies.accessToken) {
+
+      console.log("No Authorization header found, checking cookies");
+      // If no Authorization header, check for cookie
+      token = req.cookies.accessToken;
+      // console.log("Token found in cookies: ", token);
     }
 
-    // Get token from header
-    const token = authHeader.split(" ")[1];
-
     if (!token) {
-      res.status(401).json({ message: "Invalid token format" });
+      res.status(401).json({ message: "No token provided" });
       return resolve();
     }
 
@@ -48,7 +58,8 @@ export function authMiddleware(
       return resolve();
     }
 
-    // console.log("Payload: ", payload);
+    // console.log("Token payload: ", payload);
+
     // Attach user to request
     req.user = {
       id: payload.sub,

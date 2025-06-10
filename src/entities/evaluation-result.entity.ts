@@ -39,6 +39,9 @@ export class EvaluationResult {
   @Column({ type: "text", nullable: true })
   comment!: string;
 
+  @Column({ type: "text", nullable: true })
+  note!: string;
+
   @Column({ nullable: true })
   choice_value!: number;
 
